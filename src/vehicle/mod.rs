@@ -24,7 +24,8 @@ pub struct Vehicle {
     pub distance_travelled: f32,
     pub velocity: Velocity,
     pub time_in_intersection: f32,
-    pub entry_time: f32,
+    pub time_since_detected: f32,
+    pub detected_by_scheduler: bool,
     pub close_call: bool,
 }
 
@@ -38,7 +39,8 @@ impl Vehicle {
             distance_travelled: 0.0,
             velocity: Velocity::Medium,
             time_in_intersection: 0.0,
-            entry_time: 0.0,
+            time_since_detected: 0.0,
+            detected_by_scheduler: false,
             close_call: false,
         }
     }
@@ -71,6 +73,9 @@ impl Vehicle {
 
     pub fn update(&mut self, dt: f32) {
         self.distance_travelled += self.speed() * dt;
+        if self.detected_by_scheduler {
+            self.time_since_detected += dt;
+        }
         if self.in_intersection() {
             self.time_in_intersection += dt;
         }

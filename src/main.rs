@@ -76,4 +76,6 @@ fn main() {
         draw_vehicles(&mut canvas, &intersection.vehicles);
         canvas.present();
     }
+
+    println!("{}", intersection.stats_report());
 }

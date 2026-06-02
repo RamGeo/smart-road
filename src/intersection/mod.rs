@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use rand::Rng;
 
+use crate::stats::SimulationStats;
 use crate::vehicle::route::{Direction, Path, Route};
 use crate::vehicle::{Vehicle, Velocity, SAFE_DISTANCE, VEHICLE_SIZE};
 use scheduler::Scheduler;
@@ -11,6 +12,7 @@ use scheduler::Scheduler;
 pub struct Intersection {
     pub vehicles: Vec<Vehicle>,
     scheduler: Scheduler,
+    pub stats: SimulationStats,
     next_id: u32,
     pub total_time: f32,
 }
@@ -20,6 +22,7 @@ impl Intersection {
         Intersection {
             vehicles: Vec::new(),
             scheduler: Scheduler::new(),
+            stats: SimulationStats::default(),
             next_id: 0,
             total_time: 0.0,
         }
@@ -48,10 +51,28 @@ impl Intersection {
         self.total_time += dt;
         Self::apply_safety_distances(&mut self.vehicles);
         self.scheduler.schedule(&mut self.vehicles, dt);
+
+        let in_intersection_count = self
+            .vehicles
+            .iter()
+            .filter(|v| v.in_intersection())
+            .count();
+        self.stats.observe_vehicles_in_intersection(in_intersection_count);
+        self.record_close_calls();
+
         for v in &mut self.vehicles {
+            self.stats.observe_speed(v.speed());
             v.update(dt);
         }
+
+        for v in self.vehicles.iter().filter(|v| v.is_done()) {
+            self.stats.record_completed_vehicle(v);
+        }
         self.vehicles.retain(|v| !v.is_done());
+    }
+
+    pub fn stats_report(&self) -> String {
+        self.stats.report()
     }
 
     // ── private helpers ───────────────────────────────────────────────────────
@@ -123,7 +144,28 @@ impl Intersection {
                     }
                 } else {
                     // Gap is safe — release the follower; scheduler overrides if needed.
-                    vehicles[follower].velocity = Velocity::Medium;
+                    if vehicles[follower].velocity != Velocity::Fast {
+                        vehicles[follower].velocity = Velocity::Medium;
+                    }
+                }
+            }
+        }
+    }
+
+    fn record_close_calls(&mut self) {
+        let len = self.vehicles.len();
+        for i in 0..len {
+            for j in i + 1..len {
+                let a = &self.vehicles[i];
+                let b = &self.vehicles[j];
+                if !a.detected_by_scheduler || !b.detected_by_scheduler {
+                    continue;
+                }
+                if !scheduler::Scheduler::paths_conflict(a.direction, a.route, b.direction, b.route) {
+                    continue;
+                }
+                if a.distance_to(b) < SAFE_DISTANCE {
+                    self.stats.record_close_call_pair(a.id, b.id);
                 }
             }
         }
