@@ -101,6 +101,7 @@ fn main() {
         canvas.present();
     }
 
+<<<<<<< HEAD
     // Stats screen — stays open until Esc or window close.
     'stats: loop {
         for event in event_pump.poll_iter() {
@@ -118,4 +119,7 @@ fn main() {
         stats.draw(&mut canvas, &font, &texture_creator);
         canvas.present();
     }
+=======
+    println!("{}", intersection.stats_report());
+>>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
 }

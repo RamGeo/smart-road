@@ -4,7 +4,11 @@ use std::collections::{HashMap, HashSet};
 
 use rand::Rng;
 
+<<<<<<< HEAD
 use crate::stats::Stats;
+=======
+use crate::stats::SimulationStats;
+>>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
 use crate::vehicle::route::{Direction, Path, Route};
 use crate::vehicle::{Vehicle, Velocity, SAFE_DISTANCE, VEHICLE_SIZE};
 use scheduler::Scheduler;
@@ -12,6 +16,7 @@ use scheduler::Scheduler;
 pub struct Intersection {
     pub vehicles: Vec<Vehicle>,
     scheduler: Scheduler,
+    pub stats: SimulationStats,
     next_id: u32,
     pub total_time: f32,
     close_call_pairs: HashSet<(u32, u32)>,
@@ -22,6 +27,7 @@ impl Intersection {
         Intersection {
             vehicles: Vec::new(),
             scheduler: Scheduler::new(),
+            stats: SimulationStats::default(),
             next_id: 0,
             total_time: 0.0,
             close_call_pairs: HashSet::new(),
@@ -51,18 +57,41 @@ impl Intersection {
         self.total_time += dt;
         Self::apply_safety_distances(&mut self.vehicles);
         self.scheduler.schedule(&mut self.vehicles, dt);
+<<<<<<< HEAD
         self.detect_close_calls(stats);
+=======
+
+        let in_intersection_count = self
+            .vehicles
+            .iter()
+            .filter(|v| v.in_intersection())
+            .count();
+        self.stats.observe_vehicles_in_intersection(in_intersection_count);
+        self.record_close_calls();
+
+>>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
         for v in &mut self.vehicles {
+            self.stats.observe_speed(v.speed());
             v.update(dt);
         }
+<<<<<<< HEAD
         // Record stats for vehicles that just finished their path.
         for v in self.vehicles.iter().filter(|v| v.is_done()) {
             stats.record_vehicle_exit(v);
+=======
+
+        for v in self.vehicles.iter().filter(|v| v.is_done()) {
+            self.stats.record_completed_vehicle(v);
+>>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
         }
         self.vehicles.retain(|v| !v.is_done());
         if self.vehicles.len() > stats.max_simultaneous {
             stats.max_simultaneous = self.vehicles.len();
         }
+    }
+
+    pub fn stats_report(&self) -> String {
+        self.stats.report()
     }
 
     // ── private helpers ───────────────────────────────────────────────────────
@@ -162,7 +191,28 @@ impl Intersection {
                     }
                 } else {
                     // Gap is safe — release the follower; scheduler overrides if needed.
-                    vehicles[follower].velocity = Velocity::Medium;
+                    if vehicles[follower].velocity != Velocity::Fast {
+                        vehicles[follower].velocity = Velocity::Medium;
+                    }
+                }
+            }
+        }
+    }
+
+    fn record_close_calls(&mut self) {
+        let len = self.vehicles.len();
+        for i in 0..len {
+            for j in i + 1..len {
+                let a = &self.vehicles[i];
+                let b = &self.vehicles[j];
+                if !a.detected_by_scheduler || !b.detected_by_scheduler {
+                    continue;
+                }
+                if !scheduler::Scheduler::paths_conflict(a.direction, a.route, b.direction, b.route) {
+                    continue;
+                }
+                if a.distance_to(b) < SAFE_DISTANCE {
+                    self.stats.record_close_call_pair(a.id, b.id);
                 }
             }
         }

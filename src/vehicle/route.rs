@@ -38,19 +38,19 @@ impl Path {
             // From North → going South ──────────────────────────────────
             (Direction::North, Route::Right)    => vec![(300.0,   0.0), (300.0, 300.0), (  0.0, 300.0)],
             (Direction::North, Route::Straight) => vec![(340.0,   0.0), (340.0, 800.0)],
-            (Direction::North, Route::Left)     => vec![(380.0,   0.0), (380.0, 300.0), (500.0, 420.0), (800.0, 420.0)],
+            (Direction::North, Route::Left)     => vec![(380.0,   0.0), (380.0, 300.0), (380.0, 420.0), (800.0, 420.0)],
             // From South → going North ──────────────────────────────────
             (Direction::South, Route::Right)    => vec![(500.0, 800.0), (500.0, 500.0), (800.0, 500.0)],
             (Direction::South, Route::Straight) => vec![(460.0, 800.0), (460.0,   0.0)],
-            (Direction::South, Route::Left)     => vec![(420.0, 800.0), (420.0, 500.0), (300.0, 380.0), (  0.0, 380.0)],
+            (Direction::South, Route::Left)     => vec![(420.0, 800.0), (420.0, 500.0), (420.0, 380.0), (  0.0, 380.0)],
             // From East → going West ────────────────────────────────────
             (Direction::East,  Route::Right)    => vec![(800.0, 300.0), (500.0, 300.0), (500.0,   0.0)],
             (Direction::East,  Route::Straight) => vec![(800.0, 340.0), (  0.0, 340.0)],
-            (Direction::East,  Route::Left)     => vec![(800.0, 380.0), (500.0, 380.0), (380.0, 500.0), (380.0, 800.0)],
+            (Direction::East,  Route::Left)     => vec![(800.0, 380.0), (500.0, 380.0), (380.0, 380.0), (380.0, 800.0)],
             // From West → going East ────────────────────────────────────
             (Direction::West,  Route::Right)    => vec![(  0.0, 500.0), (300.0, 500.0), (300.0, 800.0)],
             (Direction::West,  Route::Straight) => vec![(  0.0, 460.0), (800.0, 460.0)],
-            (Direction::West,  Route::Left)     => vec![(  0.0, 420.0), (300.0, 420.0), (420.0, 300.0), (420.0,   0.0)],
+            (Direction::West,  Route::Left)     => vec![(  0.0, 420.0), (300.0, 420.0), (420.0, 420.0), (420.0,   0.0)],
         };
         Path { waypoints }
     }
