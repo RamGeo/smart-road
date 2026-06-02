@@ -3,6 +3,7 @@ use std::time::Instant;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
+use smart_road::audio::Audio;
 use smart_road::intersection::Intersection;
 use smart_road::renderer::{draw_hud, draw_lane_arrows, draw_road, draw_vehicles, Assets};
 use smart_road::vehicle::route::{Direction, WINDOW_H, WINDOW_W};
@@ -26,7 +27,32 @@ fn find_font() -> &'static str {
     CANDIDATES[0]
 }
 
+fn ensure_wsl_audio() {
+    if std::env::var("PULSE_SERVER").is_err() {
+        let wslg_pulse = "/mnt/wslg/PulseServer";
+        if std::path::Path::new(wslg_pulse).exists() {
+            // SAFETY: called once at startup before other threads exist.
+            unsafe {
+                std::env::set_var("PULSE_SERVER", format!("unix:{wslg_pulse}"));
+            }
+        }
+    }
+}
+
+fn try_spawn_manual(
+    intersection: &mut Intersection,
+    audio: &Option<Audio>,
+    direction: Direction,
+) {
+    if intersection.spawn_vehicle(direction) {
+        if let Some(audio) = audio {
+            audio.play_spawn();
+        }
+    }
+}
+
 fn main() {
+    ensure_wsl_audio();
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let ttf_context = sdl2::ttf::init()
@@ -46,6 +72,10 @@ fn main() {
         .load_font(find_font(), 16)
         .expect("Font not found — install fonts-dejavu-core or fonts-liberation");
     let mut event_pump = sdl_context.event_pump().unwrap();
+    let audio = Audio::try_init(&sdl_context);
+    if audio.is_none() {
+        eprintln!("Warning: audio unavailable — toggle sounds disabled");
+    }
 
     let mut intersection = Intersection::new();
     let mut last_frame = Instant::now();
@@ -64,32 +94,31 @@ fn main() {
                 Event::KeyDown {
                     keycode: Some(Keycode::Up),
                     ..
-                } => {
-                    intersection.spawn_vehicle(Direction::South);
-                }
+                } => try_spawn_manual(&mut intersection, &audio, Direction::South),
                 Event::KeyDown {
                     keycode: Some(Keycode::Down),
                     ..
-                } => {
-                    intersection.spawn_vehicle(Direction::North);
-                }
+                } => try_spawn_manual(&mut intersection, &audio, Direction::North),
                 Event::KeyDown {
                     keycode: Some(Keycode::Right),
                     ..
-                } => {
-                    intersection.spawn_vehicle(Direction::West);
-                }
+                } => try_spawn_manual(&mut intersection, &audio, Direction::West),
                 Event::KeyDown {
                     keycode: Some(Keycode::Left),
                     ..
-                } => {
-                    intersection.spawn_vehicle(Direction::East);
-                }
+                } => try_spawn_manual(&mut intersection, &audio, Direction::East),
                 Event::KeyDown {
                     keycode: Some(Keycode::R),
                     ..
                 } => {
                     random_spawning = !random_spawning;
+                    if let Some(audio) = &audio {
+                        if random_spawning {
+                            audio.play_random_on();
+                        } else {
+                            audio.play_random_off();
+                        }
+                    }
                 }
                 _ => {}
             }

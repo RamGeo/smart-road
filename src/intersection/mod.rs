@@ -28,9 +28,9 @@ impl Intersection {
         }
     }
 
-    pub fn spawn_vehicle(&mut self, direction: Direction) {
+    pub fn spawn_vehicle(&mut self, direction: Direction) -> bool {
         let route = Self::random_route();
-        self.try_spawn(direction, route);
+        self.try_spawn(direction, route)
     }
 
     pub fn spawn_random_vehicle(&mut self) {
@@ -108,7 +108,7 @@ impl Intersection {
         }
     }
 
-    fn try_spawn(&mut self, direction: Direction, route: Route) {
+    fn try_spawn(&mut self, direction: Direction, route: Route) -> bool {
         let spawn_pos = Path::new(direction, route).waypoints[0];
         let occupied = self.vehicles.iter().any(|v| {
             let (vx, vy) = v.position();
@@ -120,6 +120,9 @@ impl Intersection {
             self.vehicles
                 .push(Vehicle::new(self.next_id, direction, route));
             self.next_id += 1;
+            true
+        } else {
+            false
         }
     }
 

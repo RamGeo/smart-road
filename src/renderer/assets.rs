@@ -365,7 +365,7 @@ pub fn draw_scenery(canvas: &mut Canvas<Window>, assets: &Assets) {
         blit_sprite(canvas, &assets.tree, x, y, assets.tree_w, assets.tree_h);
     }
 
-    // Southwest: one park with buildings on either side
+    // Southwest: apartment left, park centred-right, shop on the far side
     blit_sprite(
         canvas,
         &assets.building_apartment,
@@ -377,7 +377,7 @@ pub fn draw_scenery(canvas: &mut Canvas<Window>, assets: &Assets) {
     blit_sprite(
         canvas,
         &assets.park,
-        100,
+        160,
         536,
         assets.park_w,
         assets.park_h,
@@ -385,49 +385,30 @@ pub fn draw_scenery(canvas: &mut Canvas<Window>, assets: &Assets) {
     blit_sprite(
         canvas,
         &assets.building_shop,
-        310,
+        352,
         560,
         assets.building_shop_w,
         assets.building_shop_h,
     );
-    for (x, y) in [(150, 580), (210, 640)] {
-        blit_sprite(canvas, &assets.tree, x, y, assets.tree_w, assets.tree_h);
-    }
 
-    // Southeast: shops, office, park
+    // Southeast: one shop + park (fits inside corner, not clipped)
     blit_sprite(
         canvas,
         &assets.building_shop,
-        760,
+        740,
         560,
         assets.building_shop_w,
         assets.building_shop_h,
-    );
-    blit_sprite(
-        canvas,
-        &assets.building_shop,
-        860,
-        640,
-        assets.building_shop_w,
-        assets.building_shop_h,
-    );
-    blit_sprite(
-        canvas,
-        &assets.building_office,
-        960,
-        540,
-        assets.building_office_w,
-        assets.building_office_h,
     );
     blit_sprite(
         canvas,
         &assets.park,
-        1060,
-        580,
+        820,
+        536,
         assets.park_w,
         assets.park_h,
     );
-    for (x, y) in [(820, 540), (920, 720), (1120, 540)] {
+    for (x, y) in [(870, 570), (940, 630)] {
         blit_sprite(canvas, &assets.tree, x, y, assets.tree_w, assets.tree_h);
     }
 }
