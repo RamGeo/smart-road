@@ -1,16 +1,19 @@
 use std::time::Instant;
 
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use smart_road::audio::Audio;
 use smart_road::intersection::Intersection;
-use smart_road::renderer::{draw_hud, draw_lane_arrows, draw_road, draw_vehicles, Assets};
+use smart_road::renderer::{
+    draw_hud, draw_lane_arrows, draw_road, draw_vehicles, Assets, LiveHudStats, SimState,
+};
 use smart_road::vehicle::route::{Direction, WINDOW_H, WINDOW_W};
 
 const WINDOW_TITLE: &str = "Smart Road Intersection";
 
 const RANDOM_SPAWN_INTERVAL: f32 = 0.8;
+const SLOW_MO_SCALE: f32 = 0.25;
 
 fn find_font() -> &'static str {
     const CANDIDATES: &[&str] = &[
@@ -80,7 +83,8 @@ fn main() {
     let mut intersection = Intersection::new();
     let mut last_frame = Instant::now();
     let mut random_spawning = false;
-    let mut last_random_spawn = Instant::now();
+    let mut random_spawn_timer = 0.0f32;
+    let mut paused = false;
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -91,6 +95,11 @@ fn main() {
                     ..
                 } => break 'running,
 
+                Event::KeyDown {
+                    keycode: Some(Keycode::Space),
+                    repeat: false,
+                    ..
+                } => paused = !paused,
                 Event::KeyDown {
                     keycode: Some(Keycode::Up),
                     ..
@@ -124,17 +133,45 @@ fn main() {
             }
         }
 
-        if random_spawning
-            && last_random_spawn.elapsed().as_secs_f32() >= RANDOM_SPAWN_INTERVAL
-        {
-            intersection.spawn_random_vehicle();
-            last_random_spawn = Instant::now();
-        }
+        let keys = event_pump.keyboard_state();
+        let slow_mo = keys.is_scancode_pressed(Scancode::LShift)
+            || keys.is_scancode_pressed(Scancode::RShift);
+        let sim_state = if paused {
+            SimState::Paused
+        } else if slow_mo {
+            SimState::SlowMo
+        } else {
+            SimState::Running
+        };
 
         let now = Instant::now();
-        let dt = now.duration_since(last_frame).as_secs_f32();
+        let frame_dt = now.duration_since(last_frame).as_secs_f32();
         last_frame = now;
-        intersection.update(dt);
+
+        let sim_dt = if paused {
+            0.0
+        } else if slow_mo {
+            frame_dt * SLOW_MO_SCALE
+        } else {
+            frame_dt
+        };
+
+        if random_spawning && sim_dt > 0.0 {
+            random_spawn_timer += sim_dt;
+            while random_spawn_timer >= RANDOM_SPAWN_INTERVAL {
+                intersection.spawn_random_vehicle();
+                random_spawn_timer -= RANDOM_SPAWN_INTERVAL;
+            }
+        }
+
+        intersection.update(sim_dt);
+
+        let live = LiveHudStats {
+            active_vehicles: intersection.vehicles.len(),
+            close_calls: intersection.stats.close_calls,
+            avg_crossing_secs: intersection.stats.average_crossing_time(),
+            sim_state,
+        };
 
         canvas.set_draw_color(Color::RGB(61, 139, 55));
         canvas.clear();
@@ -146,6 +183,7 @@ fn main() {
             &lane_font,
             &texture_creator,
             random_spawning,
+            &live,
         );
         canvas.present();
     }

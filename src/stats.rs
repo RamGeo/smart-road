@@ -24,6 +24,7 @@ pub struct Stats {
     pub max_crossing_time: f32,
     pub min_crossing_time: f32,
     pub close_calls: u32,
+    total_crossing_time: f32,
     seen_close_call_pairs: HashSet<(u32, u32)>,
 }
 
@@ -37,12 +38,24 @@ impl Stats {
             max_crossing_time: 0.0,
             min_crossing_time: f32::MAX,
             close_calls: 0,
+            total_crossing_time: 0.0,
             seen_close_call_pairs: HashSet::new(),
+        }
+    }
+
+    pub fn average_crossing_time(&self) -> f32 {
+        if self.total_passed == 0 {
+            0.0
+        } else {
+            self.total_crossing_time / self.total_passed as f32
         }
     }
 
     pub fn record_vehicle_exit(&mut self, v: &Vehicle) {
         self.total_passed += 1;
+        if v.time_since_detected > 0.0 {
+            self.total_crossing_time += v.time_since_detected;
+        }
         if v.max_speed_reached > self.max_speed {
             self.max_speed = v.max_speed_reached;
         }

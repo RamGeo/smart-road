@@ -50,6 +50,20 @@ const STATUS_DOT_GAP: i32 = 8;
 const COLOR_LED_ON: Color = Color::RGB(0, 168, 0);
 const COLOR_LED_OFF: Color = Color::RGB(208, 0, 0);
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SimState {
+    Running,
+    Paused,
+    SlowMo,
+}
+
+pub struct LiveHudStats {
+    pub active_vehicles: usize,
+    pub close_calls: u32,
+    pub avg_crossing_secs: f32,
+    pub sim_state: SimState,
+}
+
 pub fn draw_road(canvas: &mut Canvas<Window>, assets: &Assets) {
     canvas
         .copy(&assets.grass, None, Rect::new(0, 0, WINDOW_W, WINDOW_H))
@@ -188,6 +202,7 @@ pub fn draw_hud<T>(
     status_font: &Font,
     texture_creator: &TextureCreator<T>,
     random_spawning: bool,
+    live: &LiveHudStats,
 ) {
     // Title bar — Win95-style active window caption
     canvas.set_draw_color(COLOR_TITLE_BAR);
@@ -234,6 +249,23 @@ pub fn draw_hud<T>(
         Color::RGB(255, 255, 255),
     );
 
+    if live.sim_state != SimState::Running {
+        let (state_label, state_color) = match live.sim_state {
+            SimState::Paused => ("[ PAUSED ]", Color::RGB(255, 220, 100)),
+            SimState::SlowMo => ("[ SLOW-MO ]", Color::RGB(180, 255, 180)),
+            SimState::Running => unreachable!(),
+        };
+        draw_text_right(
+            canvas,
+            status_font,
+            texture_creator,
+            state_label,
+            WINDOW_W as i32 - TITLE_TEXT_PAD_X,
+            title_y,
+            state_color,
+        );
+    }
+
     // Status bar with 3D bevel
     let bar_y = WINDOW_H as i32 - STATUS_BAR_H as i32;
     canvas.set_draw_color(COLOR_STATUS_BAR);
@@ -250,6 +282,7 @@ pub fn draw_hud<T>(
         .ok();
 
     let text_y = bar_y + (STATUS_BAR_H as i32 - status_font.height() as i32) / 2;
+    let text_center_y = bar_y + STATUS_BAR_H as i32 / 2;
 
     let dot_x = STATUS_TEXT_PAD_X;
     let dot_y = bar_y + (STATUS_BAR_H as i32 - STATUS_DOT_SIZE) / 2;
@@ -270,11 +303,33 @@ pub fn draw_hud<T>(
         text_y,
         Color::RGB(0, 0, 0),
     );
+
+    let close_color = if live.close_calls > 0 {
+        Color::RGB(128, 0, 0)
+    } else {
+        Color::RGB(0, 0, 0)
+    };
+    let live_line = format!(
+        "Active: {}   Close: {}   Avg cross: {:.1}s",
+        live.active_vehicles,
+        live.close_calls,
+        live.avg_crossing_secs,
+    );
+    draw_text_centered(
+        canvas,
+        status_font,
+        texture_creator,
+        &live_line,
+        WINDOW_W as i32 / 2,
+        text_center_y,
+        close_color,
+    );
+
     draw_text_right(
         canvas,
         status_font,
         texture_creator,
-        "Arrows: spawn  |  Esc: stats",
+        "Space: pause  Shift: slow  |  Esc: stats",
         WINDOW_W as i32 - STATUS_TEXT_PAD_X,
         text_y,
         Color::RGB(0, 0, 0),
