@@ -6,9 +6,11 @@ pub const SLOW_SPEED: f32 = 60.0;
 pub const MEDIUM_SPEED: f32 = 120.0;
 pub const FAST_SPEED: f32 = 200.0;
 pub const SAFE_DISTANCE: f32 = 40.0;
+pub const VEHICLE_SIZE: f32 = 22.0; // slightly larger than the rendered 20×20 square
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Velocity {
+    Stopped,
     Slow,
     Medium,
     Fast,
@@ -51,9 +53,10 @@ impl Vehicle {
 
     pub fn speed(&self) -> f32 {
         match self.velocity {
-            Velocity::Slow => SLOW_SPEED,
-            Velocity::Medium => MEDIUM_SPEED,
-            Velocity::Fast => FAST_SPEED,
+            Velocity::Stopped => 0.0,
+            Velocity::Slow    => SLOW_SPEED,
+            Velocity::Medium  => MEDIUM_SPEED,
+            Velocity::Fast    => FAST_SPEED,
         }
     }
 

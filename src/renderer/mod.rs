@@ -26,16 +26,16 @@ pub fn draw_road(canvas: &mut Canvas<Window>) {
     canvas.set_draw_color(COLOR_GRASS);
     canvas.fill_rect(Rect::new(0, 0, 800, 800)).unwrap();
 
-    // vertical road (N-S), x 300-500
+    // vertical road (N-S): lane centres at x=300..500, extend 20 px each side
     canvas.set_draw_color(COLOR_ROAD);
-    canvas.fill_rect(Rect::new(300, 0, 200, 800)).unwrap();
+    canvas.fill_rect(Rect::new(280, 0, 240, 800)).unwrap();
 
-    // horizontal road (E-W), y 300-500
-    canvas.fill_rect(Rect::new(0, 300, 800, 200)).unwrap();
+    // horizontal road (E-W): lane centres at y=300..500, extend 20 px each side
+    canvas.fill_rect(Rect::new(0, 280, 800, 240)).unwrap();
 
     // intersection box slightly lighter
     canvas.set_draw_color(COLOR_INTERSECTION);
-    canvas.fill_rect(Rect::new(300, 300, 200, 200)).unwrap();
+    canvas.fill_rect(Rect::new(280, 280, 240, 240)).unwrap();
 
     // dashed centre line — vertical road (x = 400)
     canvas.set_draw_color(COLOR_LANE_LINE);

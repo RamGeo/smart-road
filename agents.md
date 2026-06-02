@@ -42,7 +42,7 @@ Represents a single autonomous vehicle in the simulation.
 
 **Key types:**
 ```rust
-pub enum Velocity { Slow, Medium, Fast }
+pub enum Velocity { Stopped, Slow, Medium, Fast }  // Stopped = 0 px/s
 
 pub struct Vehicle {
     pub id: u32,
@@ -226,11 +226,11 @@ Safety distance is enforced at two levels:
 | 1 | Define `Route`, `Direction`, `Path` with hardcoded waypoints and verify geometry | ✅ Done |
 | 2 | Implement `Vehicle` physics (movement along path, safety distance enforcement) | ✅ Done |
 | 3 | Build the `Renderer` — static road + moving coloured boxes (no sprites yet) | ✅ Done |
-| 4 | Implement the `Scheduler` with a simple FIFO reservation table | ⬜ Next |
-| 5 | Wire up keyboard events, random routes, and spawn throttle | ⬜ Todo |
+| 4 | Implement the `Scheduler` — stop-line conflict detection, deadlock prevention | ✅ Done |
+| 5 | Wire up keyboard events, random routes, and spawn throttle | ✅ Done |
 | 6 | Add road map image (replace drawn rectangles) | ⬜ Todo |
 | 7 | Add vehicle sprite images and rotation animation | ⬜ Todo |
-| 8 | Implement `Stats` collection and end-screen display | ⬜ Todo |
+| 8 | Implement `Stats` collection and end-screen display | ⬜ Next |
 | 9 | (Bonus) Add acceleration/deceleration physics | ⬜ Bonus |
 
 ---
@@ -257,11 +257,26 @@ Safety distance is enforced at two levels:
 
 ### Step 3 — Renderer (`src/renderer/mod.rs`, `src/main.rs`)
 - SDL2 chosen as the graphics library (`sdl2 = "0.37"` in `Cargo.toml`)
-- `draw_road(canvas)` — renders grass background, N-S and E-W road strips, intersection box, dashed yellow centre lines
+- `draw_road(canvas)` — renders grass background, N-S and E-W road strips (280→520 px wide), intersection box, dashed yellow centre lines
 - `draw_vehicles(canvas, vehicles)` — renders each vehicle as a 20×20 coloured square: Red=North, Blue=South, Green=East, Yellow=West
 - Game loop in `main.rs`: event handling → `intersection.update(dt)` → clear → draw road → draw vehicles → present
-- Arrow keys wire up to `intersection.spawn_vehicle(direction)` (all routes currently `Straight` — fixed in Step 5)
-- `dt` hardcoded to `1/60` s — real elapsed time to be added in Step 5
+- Real `dt` via `std::time::Instant` — no fixed frame rate assumption
+
+### Step 4 — Scheduler (`src/intersection/scheduler.rs`)
+- Stop-line zone: 60 px before the intersection box edge
+- Vehicles approaching the stop line are held (`Velocity::Stopped`) if any conflicting vehicle is currently inside the box
+- `paths_conflict()` — two vehicles conflict if they come from different directions AND at least one is not turning right (right turns stay in their corner and never cross)
+- `newly_entering` list prevents multiple conflicting vehicles being released into the intersection on the same frame (solves simultaneous-release collision)
+- Scheduler runs after `apply_safety_distances()` each frame so it always gets the final say on velocity
+
+### Step 5 — Events, Routes, Spawn Throttle (`src/main.rs`, `src/intersection/mod.rs`)
+- Correct key mapping: Up=South, Down=North, Right=West, Left=East
+- R key toggles continuous random spawning (one vehicle every 0.8 s, random direction + route)
+- `spawn_random_vehicle()` picks direction and route via `rand`
+- `try_spawn()` checks all existing vehicles against the new vehicle's spawn point; skips if any vehicle is within `2 × SAFE_DISTANCE` (prevents stacking on key spam)
+- `Velocity::Stopped` added (speed = 0) so the scheduler can fully halt vehicles at the stop line
+- `VEHICLE_SIZE = 22.0` px — hard position clamp in `apply_safety_distances()` prevents two same-lane vehicles ever physically overlapping regardless of frame timing
+- Cascade-stop bug fixed: safety distance no longer skips `Stopped` followers; the scheduler re-applies `Stopped` afterward if still needed, so queued vehicles always unblock when the leader is released
 
 ### Step 6 — Road Map Image (pending)
 - Replace the drawn road rectangles in `draw_road()` with a pre-made PNG background image
