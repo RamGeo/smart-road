@@ -4,7 +4,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use smart_road::intersection::Intersection;
-use smart_road::renderer::{draw_lane_arrows, draw_road, draw_vehicles};
+use smart_road::renderer::{draw_intersection_box, draw_lane_arrows, draw_road, draw_vehicles};
 use smart_road::vehicle::route::{Direction, WINDOW_H, WINDOW_W};
 
 const WINDOW_TITLE: &str = "Road Intersection";
@@ -91,6 +91,7 @@ fn main() {
         canvas.clear();
         draw_road(&mut canvas);
         draw_lane_arrows(&mut canvas, &lane_font, &texture_creator);
+        draw_intersection_box(&mut canvas);
         draw_vehicles(&mut canvas, &intersection.vehicles);
         canvas.present();
     }

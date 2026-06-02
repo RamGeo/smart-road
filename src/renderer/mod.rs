@@ -19,7 +19,10 @@ const COLOR_ROAD:         Color = Color::RGB( 50,  50,  50);
 const COLOR_INTERSECTION: Color = Color::RGB( 70,  70,  70);
 const COLOR_LANE_LINE:    Color = Color::RGB(200, 200,  50);
 const COLOR_LANE_ARROW:   Color = Color::RGB(180, 180, 180);
-const COLOR_LANE_DIVIDER: Color = Color::RGB(160, 160, 160);
+/// Incoming-lane dividers (side with r / s / l markings).
+const COLOR_LANE_DIVIDER: Color = Color::RGB(255, 255, 255);
+/// Outgoing-lane dividers on the opposite side of the yellow centre line.
+const COLOR_LANE_DIVIDER_OPPOSITE: Color = Color::RGB(80, 140, 220);
 
 /// Centre of the label row/column on each approach (same spacing on all four arms).
 const LANE_LABEL_OFFSET: f32 = 70.0;
@@ -39,7 +42,6 @@ pub fn draw_road(canvas: &mut Canvas<Window>) {
     let cx = CENTER_X as i32;
     let cy = CENTER_Y as i32;
     let road_half = ROAD_HALF as i32;
-    let box_half = BOX_HALF as i32;
 
     // grass background
     canvas.set_draw_color(COLOR_GRASS);
@@ -56,18 +58,7 @@ pub fn draw_road(canvas: &mut Canvas<Window>) {
         .fill_rect(Rect::new(0, cy - road_half, WINDOW_W, (road_half * 2) as u32))
         .unwrap();
 
-    // intersection box slightly lighter
-    canvas.set_draw_color(COLOR_INTERSECTION);
-    canvas
-        .fill_rect(Rect::new(
-            cx - box_half,
-            cy - box_half,
-            (box_half * 2) as u32,
-            (box_half * 2) as u32,
-        ))
-        .unwrap();
-
-    // solid centre lines — flush with the intersection box, none inside it
+    // solid centre lines — stop at the intersection box, none inside it
     canvas.set_draw_color(COLOR_LANE_LINE);
     let box_min_y = BOX_MIN_Y as i32;
     let box_max_y = BOX_MAX_Y as i32;
@@ -98,12 +89,31 @@ pub fn draw_road(canvas: &mut Canvas<Window>) {
     }
 }
 
+/// Drawn after lane dividers so lines cannot bleed into the intersection.
+pub fn draw_intersection_box(canvas: &mut Canvas<Window>) {
+    let cx = CENTER_X as i32;
+    let cy = CENTER_Y as i32;
+    let box_half = BOX_HALF as i32;
+    canvas.set_draw_color(COLOR_INTERSECTION);
+    canvas
+        .fill_rect(Rect::new(
+            cx - box_half,
+            cy - box_half,
+            (box_half * 2) as u32,
+            (box_half * 2) as u32,
+        ))
+        .unwrap();
+}
+
 /// Lane arrows (r / s / l) and dotted dividers on each approach.
 pub fn draw_lane_arrows<T>(
     canvas: &mut Canvas<Window>,
     font: &Font,
     texture_creator: &TextureCreator<T>,
 ) {
+    // Blue dividers on the left (outgoing) side only — draw first so white lines stay on top.
+    draw_opposite_lane_dividers(canvas);
+
     // North — arrow closer to intersection than letter (south of label row)
     draw_lane_approach(
         canvas,
@@ -111,8 +121,8 @@ pub fn draw_lane_arrows<T>(
         texture_creator,
         LaneLayout::NorthSouth {
             label_y: BOX_MIN_Y - LANE_LABEL_OFFSET,
-            divider_y0: 0.0,
-            divider_y1: BOX_MIN_Y,
+            divider_y_box: BOX_MIN_Y,
+            divider_y_outer: 0.0,
             arrow_toward_increasing_y: true,
         },
         [CENTER_X - LANE_OUTER, CENTER_X - LANE_MID, CENTER_X - LANE_INNER],
@@ -125,8 +135,8 @@ pub fn draw_lane_arrows<T>(
         texture_creator,
         LaneLayout::NorthSouth {
             label_y: BOX_MAX_Y + LANE_LABEL_OFFSET,
-            divider_y0: BOX_MAX_Y,
-            divider_y1: WINDOW_HF,
+            divider_y_box: BOX_MAX_Y,
+            divider_y_outer: WINDOW_HF,
             arrow_toward_increasing_y: false,
         },
         [CENTER_X + LANE_INNER, CENTER_X + LANE_MID, CENTER_X + LANE_OUTER],
@@ -165,8 +175,9 @@ pub fn draw_lane_arrows<T>(
 enum LaneLayout {
     NorthSouth {
         label_y: f32,
-        divider_y0: f32,
-        divider_y1: f32,
+        /// Dashed lines run from this edge of the intersection box outward.
+        divider_y_box: f32,
+        divider_y_outer: f32,
         /// When true, the intersection lies at greater y than the label row (north approach).
         arrow_toward_increasing_y: bool,
     },
@@ -186,21 +197,22 @@ fn draw_lane_approach<T>(
     lane_centers: [f32; 3],
     arrows: (&str, &str, &str),
 ) {
-    let div_a = ((lane_centers[0] + lane_centers[1]) / 2.0) as i32;
-    let div_b = ((lane_centers[1] + lane_centers[2]) / 2.0) as i32;
     let suffixes = ["r", "s", "l"];
 
     match layout {
         LaneLayout::NorthSouth {
             label_y,
-            divider_y0,
-            divider_y1,
+            divider_y_box,
+            divider_y_outer,
             arrow_toward_increasing_y,
         } => {
-            let y0 = divider_y0 as i32;
-            let y1 = divider_y1 as i32;
-            draw_dotted_vertical(canvas, div_a, y0, y1);
-            draw_dotted_vertical(canvas, div_b, y0, y1);
+            draw_ns_lane_dividers(
+                canvas,
+                lane_centers,
+                divider_y_box,
+                divider_y_outer,
+                COLOR_LANE_DIVIDER,
+            );
             let y = label_y as i32;
             for i in 0..3 {
                 draw_lane_marker(
@@ -221,10 +233,13 @@ fn draw_lane_approach<T>(
             divider_x0,
             divider_x1,
         } => {
-            let x0 = divider_x0 as i32;
-            let x1 = divider_x1 as i32;
-            draw_dotted_horizontal(canvas, div_a, x0, x1);
-            draw_dotted_horizontal(canvas, div_b, x0, x1);
+            draw_ew_lane_dividers(
+                canvas,
+                lane_centers,
+                divider_x0,
+                divider_x1,
+                COLOR_LANE_DIVIDER,
+            );
 
             let arrow_xi = arrow_x as i32;
             let letter_xi = letter_x as i32;
@@ -315,23 +330,139 @@ fn draw_lane_marker<T>(
     );
 }
 
-fn draw_dotted_vertical(canvas: &mut Canvas<Window>, x: i32, y_start: i32, y_end: i32) {
-    canvas.set_draw_color(COLOR_LANE_DIVIDER);
-    let (y_start, y_end) = if y_start <= y_end {
-        (y_start, y_end)
+/// Blue dotted dividers on the outgoing (left) side of each road arm.
+fn draw_opposite_lane_dividers(canvas: &mut Canvas<Window>) {
+    // North arm — east of the yellow centre line
+    draw_ns_lane_dividers(
+        canvas,
+        [
+            CENTER_X + LANE_INNER,
+            CENTER_X + LANE_MID,
+            CENTER_X + LANE_OUTER,
+        ],
+        BOX_MIN_Y,
+        0.0,
+        COLOR_LANE_DIVIDER_OPPOSITE,
+    );
+    // South arm — west of the centre line
+    draw_ns_lane_dividers(
+        canvas,
+        [
+            CENTER_X - LANE_INNER,
+            CENTER_X - LANE_MID,
+            CENTER_X - LANE_OUTER,
+        ],
+        BOX_MAX_Y,
+        WINDOW_HF,
+        COLOR_LANE_DIVIDER_OPPOSITE,
+    );
+    // East arm — south of the centre line, same road span as incoming (east of the box)
+    draw_ew_lane_dividers(
+        canvas,
+        [
+            CENTER_Y + LANE_INNER,
+            CENTER_Y + LANE_MID,
+            CENTER_Y + LANE_OUTER,
+        ],
+        BOX_MAX_X,
+        WINDOW_WF,
+        COLOR_LANE_DIVIDER_OPPOSITE,
+    );
+    // West arm — north of the centre line, same road span as incoming (west of the box)
+    draw_ew_lane_dividers(
+        canvas,
+        [
+            CENTER_Y - LANE_INNER,
+            CENTER_Y - LANE_MID,
+            CENTER_Y - LANE_OUTER,
+        ],
+        0.0,
+        BOX_MIN_X,
+        COLOR_LANE_DIVIDER_OPPOSITE,
+    );
+}
+
+fn draw_ns_lane_dividers(
+    canvas: &mut Canvas<Window>,
+    lane_centers: [f32; 3],
+    y_box: f32,
+    y_outer: f32,
+    color: Color,
+) {
+    let div_a = ((lane_centers[0] + lane_centers[1]) / 2.0) as i32;
+    let div_b = ((lane_centers[1] + lane_centers[2]) / 2.0) as i32;
+    let y_box = y_box as i32;
+    let y_outer = y_outer as i32;
+    draw_dotted_vertical_from_box(canvas, div_a, y_box, y_outer, color);
+    draw_dotted_vertical_from_box(canvas, div_b, y_box, y_outer, color);
+}
+
+/// Dashes begin at the intersection box edge and run outward (same idea as south).
+fn draw_dotted_vertical_from_box(
+    canvas: &mut Canvas<Window>,
+    x: i32,
+    y_box: i32,
+    y_outer: i32,
+    color: Color,
+) {
+    canvas.set_draw_color(color);
+    if y_box <= y_outer {
+        let mut y = y_box;
+        while y < y_outer {
+            let remaining = y_outer - y;
+            let h = if remaining <= DASH_ON {
+                remaining
+            } else {
+                DASH_ON
+            };
+            canvas.fill_rect(Rect::new(x, y, 2, h as u32)).ok();
+            if remaining <= DASH_ON {
+                break;
+            }
+            y += DASH_ON + DASH_OFF;
+        }
     } else {
-        (y_end, y_start)
-    };
-    let mut y = y_start;
-    while y < y_end {
-        let h = DASH_ON.min(y_end - y);
-        canvas.fill_rect(Rect::new(x, y, 2, h as u32)).ok();
-        y += DASH_ON + DASH_OFF;
+        // y_box is the intersection edge; last road pixel is y_box - 1 (like south at y_box).
+        let mut y = y_box.saturating_sub(1);
+        while y >= y_outer {
+            let remaining = y - y_outer + 1;
+            let h = if remaining <= DASH_ON {
+                remaining
+            } else {
+                DASH_ON
+            };
+            canvas
+                .fill_rect(Rect::new(x, y - h + 1, 2, h as u32))
+                .ok();
+            if remaining <= DASH_ON {
+                break;
+            }
+            y -= DASH_ON + DASH_OFF;
+        }
     }
 }
 
-fn draw_dotted_horizontal(canvas: &mut Canvas<Window>, y: i32, x_start: i32, x_end: i32) {
-    canvas.set_draw_color(COLOR_LANE_DIVIDER);
+fn draw_ew_lane_dividers(
+    canvas: &mut Canvas<Window>,
+    lane_centers: [f32; 3],
+    x_start: f32,
+    x_end: f32,
+    color: Color,
+) {
+    let div_a = ((lane_centers[0] + lane_centers[1]) / 2.0) as i32;
+    let div_b = ((lane_centers[1] + lane_centers[2]) / 2.0) as i32;
+    draw_dotted_horizontal(canvas, div_a, x_start as i32, x_end as i32, color);
+    draw_dotted_horizontal(canvas, div_b, x_start as i32, x_end as i32, color);
+}
+
+fn draw_dotted_horizontal(
+    canvas: &mut Canvas<Window>,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    color: Color,
+) {
+    canvas.set_draw_color(color);
     let (x_start, x_end) = if x_start <= x_end {
         (x_start, x_end)
     } else {
@@ -339,8 +470,16 @@ fn draw_dotted_horizontal(canvas: &mut Canvas<Window>, y: i32, x_start: i32, x_e
     };
     let mut x = x_start;
     while x < x_end {
-        let w = DASH_ON.min(x_end - x);
+        let remaining = x_end - x;
+        let w = if remaining <= DASH_ON {
+            remaining
+        } else {
+            DASH_ON
+        };
         canvas.fill_rect(Rect::new(x, y, w as u32, 2)).ok();
+        if remaining <= DASH_ON {
+            break;
+        }
         x += DASH_ON + DASH_OFF;
     }
 }
