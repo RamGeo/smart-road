@@ -9,7 +9,6 @@ use sdl2::video::Window;
 use crate::vehicle::route::{WINDOW_H, WINDOW_W};
 use crate::vehicle::Vehicle;
 
-// Win95 dialog colours
 const COLOR_DESKTOP: Color = Color::RGB(61, 139, 55);
 const COLOR_FACE: Color = Color::RGB(192, 192, 192);
 const COLOR_SHADOW: Color = Color::RGB(128, 128, 128);
@@ -65,19 +64,28 @@ impl Stats {
         }
     }
 
-    pub fn draw<T>(&self, canvas: &mut Canvas<Window>, font: &Font, tc: &TextureCreator<T>) {
+    pub fn draw<T>(
+        &self,
+        canvas: &mut Canvas<Window>,
+        title_font: &Font,
+        body_font: &Font,
+        tc: &TextureCreator<T>,
+        session_secs: f32,
+    ) {
         canvas.set_draw_color(COLOR_DESKTOP);
         canvas.clear();
 
-        const PANEL_W: u32 = 540;
-        const PANEL_H: u32 = 420;
-        const TITLE_H: u32 = 22;
+        const PANEL_W: u32 = 520;
+        const PANEL_H: u32 = 400;
+        const TITLE_H: u32 = 26;
+        const FOOTER_H: u32 = 44;
+        const PAD: i32 = 14;
+
         let panel_x = (WINDOW_W - PANEL_W) / 2;
         let panel_y = (WINDOW_H - PANEL_H) / 2;
 
         draw_raised_box(canvas, panel_x, panel_y, PANEL_W, PANEL_H);
 
-        // Title bar
         canvas.set_draw_color(COLOR_TITLE);
         canvas
             .fill_rect(Rect::new(
@@ -89,13 +97,20 @@ impl Stats {
             .ok();
         draw_text(
             canvas,
-            font,
+            title_font,
             tc,
             "Session Statistics",
             panel_x as i32 + 10,
-            panel_y as i32 + 5,
+            panel_y as i32 + 4,
             Color::RGB(255, 255, 255),
         );
+
+        let content_x = panel_x as i32 + PAD;
+        let content_y = panel_y as i32 + TITLE_H as i32 + PAD;
+        let content_w = PANEL_W as i32 - PAD * 2;
+        let content_h =
+            PANEL_H as i32 - TITLE_H as i32 - FOOTER_H as i32 - PAD * 2;
+        draw_sunken_box(canvas, content_x, content_y, content_w as u32, content_h as u32);
 
         let min_speed = if self.min_speed >= f32::MAX {
             0.0
@@ -115,6 +130,10 @@ impl Stats {
         };
 
         let lines: Vec<(String, Color)> = vec![
+            (
+                format!("Session duration:    {:.1} s", session_secs),
+                Color::RGB(0, 0, 0),
+            ),
             (
                 format!("Vehicles passed:      {}", self.total_passed),
                 Color::RGB(0, 0, 0),
@@ -143,24 +162,39 @@ impl Stats {
                 format!("Close calls:          {}", self.close_calls),
                 close_color,
             ),
-            (String::new(), Color::BLACK),
-            (
-                "Press Esc to exit".into(),
-                Color::RGB(64, 64, 64),
-            ),
         ];
 
-        let text_x = panel_x as i32 + 24;
-        let mut y = panel_y as i32 + TITLE_H as i32 + 28;
+        let line_h = body_font.height() as i32 + 12;
+        let text_x = content_x + 16;
+        let mut y = content_y + 14;
         for (text, color) in &lines {
-            if text.is_empty() {
-                y += 12;
-                continue;
-            }
-            draw_text(canvas, font, tc, text, text_x, y, *color);
-            y += 36;
+            draw_text(canvas, body_font, tc, text, text_x, y, *color);
+            y += line_h;
         }
+
+        let btn_w = 180u32;
+        let btn_h = 28u32;
+        let btn_x = panel_x + (PANEL_W - btn_w) / 2;
+        let btn_y = panel_y + PANEL_H - FOOTER_H + 8;
+        draw_raised_box(canvas, btn_x, btn_y, btn_w, btn_h);
+        let hint = "Press Esc to exit";
+        let hint_x = btn_x as i32
+            + (btn_w as i32 - measure_text_width(body_font, hint).unwrap_or(0)) / 2;
+        let hint_y = btn_y as i32 + (btn_h as i32 - body_font.height() as i32) / 2;
+        draw_text(
+            canvas,
+            body_font,
+            tc,
+            hint,
+            hint_x,
+            hint_y,
+            Color::RGB(0, 0, 0),
+        );
     }
+}
+
+fn measure_text_width(font: &Font, text: &str) -> Option<i32> {
+    font.size_of(text).ok().map(|(w, _)| w as i32)
 }
 
 fn draw_raised_box(canvas: &mut Canvas<Window>, x: u32, y: u32, w: u32, h: u32) {
@@ -168,7 +202,13 @@ fn draw_raised_box(canvas: &mut Canvas<Window>, x: u32, y: u32, w: u32, h: u32) 
     canvas
         .fill_rect(Rect::new(x as i32, y as i32, w, h))
         .ok();
-    // outer shadow
+    canvas.set_draw_color(COLOR_HIGHLIGHT);
+    canvas
+        .draw_line((x as i32, y as i32), (x as i32 + w as i32 - 1, y as i32))
+        .ok();
+    canvas
+        .draw_line((x as i32, y as i32), (x as i32, y as i32 + h as i32 - 1))
+        .ok();
     canvas.set_draw_color(COLOR_DARK_SHADOW);
     canvas
         .draw_line(
@@ -182,15 +222,6 @@ fn draw_raised_box(canvas: &mut Canvas<Window>, x: u32, y: u32, w: u32, h: u32) 
             (x as i32 + w as i32 - 1, y as i32 + h as i32 - 1),
         )
         .ok();
-    // outer highlight
-    canvas.set_draw_color(COLOR_HIGHLIGHT);
-    canvas
-        .draw_line((x as i32, y as i32), (x as i32 + w as i32 - 1, y as i32))
-        .ok();
-    canvas
-        .draw_line((x as i32, y as i32), (x as i32, y as i32 + h as i32 - 1))
-        .ok();
-    // inner shadow
     canvas.set_draw_color(COLOR_SHADOW);
     canvas
         .draw_line(
@@ -202,6 +233,36 @@ fn draw_raised_box(canvas: &mut Canvas<Window>, x: u32, y: u32, w: u32, h: u32) 
         .draw_line(
             (x as i32 + w as i32 - 2, y as i32 + 1),
             (x as i32 + w as i32 - 2, y as i32 + h as i32 - 2),
+        )
+        .ok();
+}
+
+fn draw_sunken_box(canvas: &mut Canvas<Window>, x: i32, y: i32, w: u32, h: u32) {
+    canvas.set_draw_color(COLOR_FACE);
+    canvas.fill_rect(Rect::new(x, y, w, h)).ok();
+    canvas.set_draw_color(COLOR_DARK_SHADOW);
+    canvas
+        .draw_line((x, y), (x + w as i32 - 1, y))
+        .ok();
+    canvas.draw_line((x, y), (x, y + h as i32 - 1)).ok();
+    canvas.set_draw_color(COLOR_SHADOW);
+    canvas
+        .draw_line((x + 1, y + 1), (x + w as i32 - 2, y + 1))
+        .ok();
+    canvas
+        .draw_line((x + 1, y + 1), (x + 1, y + h as i32 - 2))
+        .ok();
+    canvas.set_draw_color(COLOR_HIGHLIGHT);
+    canvas
+        .draw_line(
+            (x + 1, y + h as i32 - 2),
+            (x + w as i32 - 2, y + h as i32 - 2),
+        )
+        .ok();
+    canvas
+        .draw_line(
+            (x + w as i32 - 2, y + 1),
+            (x + w as i32 - 2, y + h as i32 - 2),
         )
         .ok();
 }

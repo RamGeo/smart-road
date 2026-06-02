@@ -163,7 +163,13 @@ fn main() {
                 _ => {}
             }
         }
-        intersection.stats.draw(&mut canvas, &font, &texture_creator);
+        intersection.stats.draw(
+            &mut canvas,
+            &font,
+            &lane_font,
+            &texture_creator,
+            intersection.total_time,
+        );
         canvas.present();
     }
 }
