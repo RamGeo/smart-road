@@ -9,7 +9,7 @@ use sdl2::surface::Surface;
 use sdl2::video::Window;
 use tiny_skia::Pixmap;
 
-use crate::vehicle::route::{WINDOW_H, WINDOW_W};
+use crate::vehicle::route::{CENTER_X, CENTER_Y, ROAD_HALF, WINDOW_H, WINDOW_W};
 
 const CAR_RENDER_W: u32 = 28;
 const CAR_RENDER_H: u32 = 36;
@@ -391,24 +391,44 @@ pub fn draw_scenery(canvas: &mut Canvas<Window>, assets: &Assets) {
         assets.building_shop_h,
     );
 
-    // Southeast: one shop + park (fits inside corner, not clipped)
+    // Southeast: shop near the road, park right-aligned, trees in open grass
+    let road_right = (CENTER_X + ROAD_HALF) as i32;
+    let road_bottom = (CENTER_Y + ROAD_HALF) as i32;
+    let pad = 16;
+    let status_bar_h = 30;
+    let content_bottom = WINDOW_H as i32 - status_bar_h - pad;
+
+    let se_park_x = WINDOW_W as i32 - pad - assets.park_w as i32;
+    let se_park_y = content_bottom - assets.park_h as i32;
+    let se_shop_x = road_right + pad;
+    let se_shop_y = content_bottom - assets.building_shop_h as i32;
+
     blit_sprite(
         canvas,
         &assets.building_shop,
-        740,
-        560,
+        se_shop_x,
+        se_shop_y,
         assets.building_shop_w,
         assets.building_shop_h,
     );
     blit_sprite(
         canvas,
         &assets.park,
-        820,
-        536,
+        se_park_x,
+        se_park_y,
         assets.park_w,
         assets.park_h,
     );
-    for (x, y) in [(870, 570), (940, 630)] {
+
+    let shop_right = se_shop_x + assets.building_shop_w as i32;
+    let gap_mid_x = shop_right + (se_park_x - shop_right) / 2;
+    for (x, y) in [
+        (gap_mid_x - 20, se_park_y + 24),
+        (gap_mid_x + 36, se_park_y + 72),
+        (se_park_x - 44, se_park_y + 118),
+        (WINDOW_W as i32 - pad - assets.tree_w as i32, content_bottom - assets.tree_h as i32),
+        (gap_mid_x + 8, road_bottom + 36),
+    ] {
         blit_sprite(canvas, &assets.tree, x, y, assets.tree_w, assets.tree_h);
     }
 }
