@@ -1,9 +1,10 @@
 pub mod scheduler;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use rand::Rng;
 
+use crate::stats::Stats;
 use crate::vehicle::route::{Direction, Path, Route};
 use crate::vehicle::{Vehicle, Velocity, SAFE_DISTANCE, VEHICLE_SIZE};
 use scheduler::Scheduler;
@@ -13,6 +14,7 @@ pub struct Intersection {
     scheduler: Scheduler,
     next_id: u32,
     pub total_time: f32,
+    close_call_pairs: HashSet<(u32, u32)>,
 }
 
 impl Intersection {
@@ -22,6 +24,7 @@ impl Intersection {
             scheduler: Scheduler::new(),
             next_id: 0,
             total_time: 0.0,
+            close_call_pairs: HashSet::new(),
         }
     }
 
@@ -44,17 +47,53 @@ impl Intersection {
         self.try_spawn(direction, route);
     }
 
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32, stats: &mut Stats) {
         self.total_time += dt;
         Self::apply_safety_distances(&mut self.vehicles);
         self.scheduler.schedule(&mut self.vehicles, dt);
+        self.detect_close_calls(stats);
         for v in &mut self.vehicles {
             v.update(dt);
         }
+        // Record stats for vehicles that just finished their path.
+        for v in self.vehicles.iter().filter(|v| v.is_done()) {
+            stats.record_vehicle_exit(v);
+        }
         self.vehicles.retain(|v| !v.is_done());
+        if self.vehicles.len() > stats.max_simultaneous {
+            stats.max_simultaneous = self.vehicles.len();
+        }
     }
 
     // ── private helpers ───────────────────────────────────────────────────────
+
+    fn detect_close_calls(&mut self, stats: &mut Stats) {
+        let len = self.vehicles.len();
+        for i in 0..len {
+            for j in (i + 1)..len {
+                // Same lane vehicles are already handled by safety distance.
+                if self.vehicles[i].direction == self.vehicles[j].direction
+                    && self.vehicles[i].route == self.vehicles[j].route
+                {
+                    continue;
+                }
+                // Only count when at least one vehicle is inside the box.
+                if !self.vehicles[i].in_intersection()
+                    && !self.vehicles[j].in_intersection()
+                {
+                    continue;
+                }
+                let dist = self.vehicles[i].distance_to(&self.vehicles[j]);
+                if dist < SAFE_DISTANCE {
+                    let id_a = self.vehicles[i].id.min(self.vehicles[j].id);
+                    let id_b = self.vehicles[i].id.max(self.vehicles[j].id);
+                    if self.close_call_pairs.insert((id_a, id_b)) {
+                        stats.close_calls += 1;
+                    }
+                }
+            }
+        }
+    }
 
     fn random_route() -> Route {
         match rand::thread_rng().gen_range(0u8..3) {

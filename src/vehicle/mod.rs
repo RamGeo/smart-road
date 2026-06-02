@@ -26,6 +26,8 @@ pub struct Vehicle {
     pub time_in_intersection: f32,
     pub entry_time: f32,
     pub close_call: bool,
+    pub max_speed_reached: f32,
+    pub min_speed_reached: f32,
 }
 
 impl Vehicle {
@@ -40,6 +42,8 @@ impl Vehicle {
             time_in_intersection: 0.0,
             entry_time: 0.0,
             close_call: false,
+            max_speed_reached: 0.0,
+            min_speed_reached: f32::MAX,
         }
     }
 
@@ -70,7 +74,14 @@ impl Vehicle {
     }
 
     pub fn update(&mut self, dt: f32) {
-        self.distance_travelled += self.speed() * dt;
+        let spd = self.speed();
+        if spd > self.max_speed_reached {
+            self.max_speed_reached = spd;
+        }
+        if spd > 0.0 && spd < self.min_speed_reached {
+            self.min_speed_reached = spd;
+        }
+        self.distance_travelled += spd * dt;
         if self.in_intersection() {
             self.time_in_intersection += dt;
         }
