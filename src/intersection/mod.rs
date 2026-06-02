@@ -1,14 +1,10 @@
 pub mod scheduler;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use rand::Rng;
 
-<<<<<<< HEAD
 use crate::stats::Stats;
-=======
-use crate::stats::SimulationStats;
->>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
 use crate::vehicle::route::{Direction, Path, Route};
 use crate::vehicle::{Vehicle, Velocity, SAFE_DISTANCE, VEHICLE_SIZE};
 use scheduler::Scheduler;
@@ -16,10 +12,9 @@ use scheduler::Scheduler;
 pub struct Intersection {
     pub vehicles: Vec<Vehicle>,
     scheduler: Scheduler,
-    pub stats: SimulationStats,
+    pub stats: Stats,
     next_id: u32,
     pub total_time: f32,
-    close_call_pairs: HashSet<(u32, u32)>,
 }
 
 impl Intersection {
@@ -27,21 +22,17 @@ impl Intersection {
         Intersection {
             vehicles: Vec::new(),
             scheduler: Scheduler::new(),
-            stats: SimulationStats::default(),
+            stats: Stats::new(),
             next_id: 0,
             total_time: 0.0,
-            close_call_pairs: HashSet::new(),
         }
     }
 
-    /// Spawn a vehicle from a specific direction with a random route.
-    /// Silently skipped if the spawn point for the chosen route is occupied.
     pub fn spawn_vehicle(&mut self, direction: Direction) {
         let route = Self::random_route();
         self.try_spawn(direction, route);
     }
 
-    /// Spawn a vehicle with a fully random direction and route.
     pub fn spawn_random_vehicle(&mut self) {
         let direction = match rand::thread_rng().gen_range(0u8..4) {
             0 => Direction::North,
@@ -53,74 +44,59 @@ impl Intersection {
         self.try_spawn(direction, route);
     }
 
-    pub fn update(&mut self, dt: f32, stats: &mut Stats) {
+    pub fn update(&mut self, dt: f32) {
         self.total_time += dt;
         Self::apply_safety_distances(&mut self.vehicles);
         self.scheduler.schedule(&mut self.vehicles, dt);
-<<<<<<< HEAD
-        self.detect_close_calls(stats);
-=======
-
-        let in_intersection_count = self
-            .vehicles
-            .iter()
-            .filter(|v| v.in_intersection())
-            .count();
-        self.stats.observe_vehicles_in_intersection(in_intersection_count);
         self.record_close_calls();
 
->>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
+        let in_box = self.vehicles.iter().filter(|v| v.in_intersection()).count();
+        if in_box > self.stats.max_simultaneous {
+            self.stats.max_simultaneous = in_box;
+        }
+
         for v in &mut self.vehicles {
-            self.stats.observe_speed(v.speed());
             v.update(dt);
         }
-<<<<<<< HEAD
-        // Record stats for vehicles that just finished their path.
-        for v in self.vehicles.iter().filter(|v| v.is_done()) {
-            stats.record_vehicle_exit(v);
-=======
 
         for v in self.vehicles.iter().filter(|v| v.is_done()) {
-            self.stats.record_completed_vehicle(v);
->>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
+            self.stats.record_vehicle_exit(v);
         }
         self.vehicles.retain(|v| !v.is_done());
-        if self.vehicles.len() > stats.max_simultaneous {
-            stats.max_simultaneous = self.vehicles.len();
-        }
-    }
-
-    pub fn stats_report(&self) -> String {
-        self.stats.report()
     }
 
     // ── private helpers ───────────────────────────────────────────────────────
 
-    fn detect_close_calls(&mut self, stats: &mut Stats) {
+    fn record_close_calls(&mut self) {
         let len = self.vehicles.len();
+        let mut to_record: Vec<(u32, u32)> = Vec::new();
         for i in 0..len {
             for j in (i + 1)..len {
-                // Same lane vehicles are already handled by safety distance.
-                if self.vehicles[i].direction == self.vehicles[j].direction
-                    && self.vehicles[i].route == self.vehicles[j].route
+                // Only check vehicles that the scheduler has already detected.
+                if !self.vehicles[i].detected_by_scheduler
+                    || !self.vehicles[j].detected_by_scheduler
                 {
                     continue;
                 }
-                // Only count when at least one vehicle is inside the box.
-                if !self.vehicles[i].in_intersection()
-                    && !self.vehicles[j].in_intersection()
-                {
+                // Only conflicting paths can produce a true close call.
+                if !Scheduler::paths_conflict(
+                    self.vehicles[i].direction,
+                    self.vehicles[i].route,
+                    self.vehicles[j].direction,
+                    self.vehicles[j].route,
+                ) {
                     continue;
                 }
-                let dist = self.vehicles[i].distance_to(&self.vehicles[j]);
+                let (ax, ay) = self.vehicles[i].position();
+                let (bx, by) = self.vehicles[j].position();
+                let dist = ((bx - ax).powi(2) + (by - ay).powi(2)).sqrt();
                 if dist < SAFE_DISTANCE {
-                    let id_a = self.vehicles[i].id.min(self.vehicles[j].id);
-                    let id_b = self.vehicles[i].id.max(self.vehicles[j].id);
-                    if self.close_call_pairs.insert((id_a, id_b)) {
-                        stats.close_calls += 1;
-                    }
+                    to_record.push((self.vehicles[i].id, self.vehicles[j].id));
                 }
             }
+        }
+        for (id_a, id_b) in to_record {
+            self.stats.record_close_call_pair(id_a, id_b);
         }
     }
 
@@ -132,8 +108,6 @@ impl Intersection {
         }
     }
 
-    /// Spawn only if no existing vehicle is within 2×SAFE_DISTANCE of the
-    /// new vehicle's start position (prevents stacking on key spam).
     fn try_spawn(&mut self, direction: Direction, route: Route) {
         let spawn_pos = Path::new(direction, route).waypoints[0];
         let occupied = self.vehicles.iter().any(|v| {
@@ -149,8 +123,6 @@ impl Intersection {
         }
     }
 
-    /// Groups vehicles by their exact lane (Direction + Route) and enforces
-    /// following distance only within the same lane.
     fn apply_safety_distances(vehicles: &mut Vec<Vehicle>) {
         let mut lanes: HashMap<(Direction, Route), Vec<usize>> = HashMap::new();
 
@@ -172,16 +144,11 @@ impl Intersection {
                 let gap = vehicles[leader].distance_travelled
                     - vehicles[follower].distance_travelled;
 
-                // Hard clamp: never let two vehicles on the same path overlap,
-                // regardless of what the velocity logic does.
                 if gap < VEHICLE_SIZE {
                     vehicles[follower].distance_travelled =
                         vehicles[leader].distance_travelled - VEHICLE_SIZE;
                 }
 
-                // Always update the follower's velocity based on the gap.
-                // The scheduler runs after this and will re-apply Stopped
-                // if the intersection is still blocked — so it gets the final say.
                 let leader_stopped = vehicles[leader].velocity == Velocity::Stopped;
                 if gap < SAFE_DISTANCE {
                     if leader_stopped {
@@ -190,29 +157,9 @@ impl Intersection {
                         vehicles[follower].velocity = Velocity::Slow;
                     }
                 } else {
-                    // Gap is safe — release the follower; scheduler overrides if needed.
                     if vehicles[follower].velocity != Velocity::Fast {
                         vehicles[follower].velocity = Velocity::Medium;
                     }
-                }
-            }
-        }
-    }
-
-    fn record_close_calls(&mut self) {
-        let len = self.vehicles.len();
-        for i in 0..len {
-            for j in i + 1..len {
-                let a = &self.vehicles[i];
-                let b = &self.vehicles[j];
-                if !a.detected_by_scheduler || !b.detected_by_scheduler {
-                    continue;
-                }
-                if !scheduler::Scheduler::paths_conflict(a.direction, a.route, b.direction, b.route) {
-                    continue;
-                }
-                if a.distance_to(b) < SAFE_DISTANCE {
-                    self.stats.record_close_call_pair(a.id, b.id);
                 }
             }
         }

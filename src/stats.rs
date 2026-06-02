@@ -1,4 +1,5 @@
-<<<<<<< HEAD
+use std::collections::HashSet;
+
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, TextureCreator};
@@ -12,9 +13,10 @@ pub struct Stats {
     pub max_simultaneous: usize,
     pub max_speed: f32,
     pub min_speed: f32,
-    pub max_time_in_intersection: f32,
-    pub min_time_in_intersection: f32,
+    pub max_crossing_time: f32,
+    pub min_crossing_time: f32,
     pub close_calls: u32,
+    seen_close_call_pairs: HashSet<(u32, u32)>,
 }
 
 impl Stats {
@@ -24,9 +26,10 @@ impl Stats {
             max_simultaneous: 0,
             max_speed: 0.0,
             min_speed: f32::MAX,
-            max_time_in_intersection: 0.0,
-            min_time_in_intersection: f32::MAX,
+            max_crossing_time: 0.0,
+            min_crossing_time: f32::MAX,
             close_calls: 0,
+            seen_close_call_pairs: HashSet::new(),
         }
     }
 
@@ -38,16 +41,23 @@ impl Stats {
         if v.min_speed_reached < f32::MAX && v.min_speed_reached < self.min_speed {
             self.min_speed = v.min_speed_reached;
         }
-        if v.time_in_intersection > self.max_time_in_intersection {
-            self.max_time_in_intersection = v.time_in_intersection;
+        // time_since_detected: elapsed from scheduler first seeing the vehicle → exit
+        if v.time_since_detected > self.max_crossing_time {
+            self.max_crossing_time = v.time_since_detected;
         }
-        if v.time_in_intersection > 0.0 && v.time_in_intersection < self.min_time_in_intersection {
-            self.min_time_in_intersection = v.time_in_intersection;
+        if v.time_since_detected > 0.0 && v.time_since_detected < self.min_crossing_time {
+            self.min_crossing_time = v.time_since_detected;
+        }
+    }
+
+    pub fn record_close_call_pair(&mut self, id_a: u32, id_b: u32) {
+        let pair = (id_a.min(id_b), id_a.max(id_b));
+        if self.seen_close_call_pairs.insert(pair) {
+            self.close_calls += 1;
         }
     }
 
     pub fn draw<T>(&self, canvas: &mut Canvas<Window>, font: &Font, tc: &TextureCreator<T>) {
-        // Panel background
         canvas.set_draw_color(Color::RGB(20, 20, 40));
         canvas.fill_rect(Rect::new(140, 110, 520, 580)).ok();
         canvas.set_draw_color(Color::RGB(100, 100, 200));
@@ -59,10 +69,10 @@ impl Stats {
         } else {
             self.min_speed
         };
-        let min_time = if self.min_time_in_intersection >= f32::MAX {
+        let min_time = if self.min_crossing_time >= f32::MAX {
             0.0
         } else {
-            self.min_time_in_intersection
+            self.min_crossing_time
         };
 
         let lines: Vec<(String, Color)> = vec![
@@ -85,7 +95,7 @@ impl Stats {
                 Color::WHITE,
             ),
             (
-                format!("Max crossing time:    {:.2} s", self.max_time_in_intersection),
+                format!("Max crossing time:    {:.2} s", self.max_crossing_time),
                 Color::WHITE,
             ),
             (
@@ -120,77 +130,5 @@ impl Stats {
             }
             y += 44;
         }
-=======
-use std::collections::HashSet;
-
-use crate::vehicle::Vehicle;
-
-#[derive(Debug, Default)]
-pub struct SimulationStats {
-    pub max_vehicles_in_intersection: usize,
-    pub max_velocity: f32,
-    pub min_velocity: Option<f32>,
-    pub max_pass_time: Option<f32>,
-    pub min_pass_time: Option<f32>,
-    pub close_calls: usize,
-    pub vehicles_completed: usize,
-    seen_close_call_pairs: HashSet<(u32, u32)>,
-}
-
-impl SimulationStats {
-    pub fn observe_speed(&mut self, speed: f32) {
-        self.max_velocity = self.max_velocity.max(speed);
-        self.min_velocity = Some(match self.min_velocity {
-            Some(min) => min.min(speed),
-            None => speed,
-        });
-    }
-
-    pub fn observe_vehicles_in_intersection(&mut self, count: usize) {
-        self.max_vehicles_in_intersection = self.max_vehicles_in_intersection.max(count);
-    }
-
-    pub fn record_close_call_pair(&mut self, id_a: u32, id_b: u32) {
-        let pair = if id_a < id_b {
-            (id_a, id_b)
-        } else {
-            (id_b, id_a)
-        };
-        if self.seen_close_call_pairs.insert(pair) {
-            self.close_calls += 1;
-        }
-    }
-
-    pub fn record_completed_vehicle(&mut self, v: &Vehicle) {
-        self.vehicles_completed += 1;
-        self.max_pass_time = Some(match self.max_pass_time {
-            Some(max) => max.max(v.time_since_detected),
-            None => v.time_since_detected,
-        });
-        self.min_pass_time = Some(match self.min_pass_time {
-            Some(min) => min.min(v.time_since_detected),
-            None => v.time_since_detected,
-        });
-    }
-
-    pub fn report(&self) -> String {
-        format!(
-            "Simulation statistics\n\
-             - Max vehicles in intersection: {}\n\
-             - Max velocity reached: {:.1}\n\
-             - Min velocity reached: {:.1}\n\
-             - Max pass time: {:.2}s\n\
-             - Min pass time: {:.2}s\n\
-             - Close calls: {}\n\
-             - Vehicles completed: {}",
-            self.max_vehicles_in_intersection,
-            self.max_velocity,
-            self.min_velocity.unwrap_or(0.0),
-            self.max_pass_time.unwrap_or(0.0),
-            self.min_pass_time.unwrap_or(0.0),
-            self.close_calls,
-            self.vehicles_completed
-        )
->>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
     }
 }

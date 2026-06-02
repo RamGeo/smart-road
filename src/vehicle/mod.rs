@@ -76,7 +76,6 @@ impl Vehicle {
     }
 
     pub fn update(&mut self, dt: f32) {
-<<<<<<< HEAD
         let spd = self.speed();
         if spd > self.max_speed_reached {
             self.max_speed_reached = spd;
@@ -85,12 +84,9 @@ impl Vehicle {
             self.min_speed_reached = spd;
         }
         self.distance_travelled += spd * dt;
-=======
-        self.distance_travelled += self.speed() * dt;
         if self.detected_by_scheduler {
             self.time_since_detected += dt;
         }
->>>>>>> 2a50ee40a5acb6626293ee366045daa310bfea81
         if self.in_intersection() {
             self.time_in_intersection += dt;
         }
