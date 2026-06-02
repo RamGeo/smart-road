@@ -25,6 +25,8 @@ const COLOR_LANE_LABEL: Color = Color::RGB(255, 255, 255);
 const COLOR_LANE_DIVIDER: Color = Color::RGB(255, 255, 255);
 const COLOR_LANE_DIVIDER_OPPOSITE: Color = Color::RGB(0, 0, 255);
 const COLOR_TITLE_BAR: Color = Color::RGB(0, 0, 128);
+const COLOR_TITLE_BAR_HIGHLIGHT: Color = Color::RGB(16, 132, 208);
+const COLOR_TITLE_BAR_SHADOW: Color = Color::RGB(0, 0, 64);
 const COLOR_STATUS_BAR: Color = Color::RGB(192, 192, 192);
 const COLOR_STATUS_SHADOW: Color = Color::RGB(128, 128, 128);
 const COLOR_STATUS_HIGHLIGHT: Color = Color::RGB(255, 255, 255);
@@ -36,9 +38,17 @@ const DASH_ON: i32 = 6;
 const DASH_OFF: i32 = 6;
 /// Gap between intersection edge and first lane-dash (keeps centre pavement clean).
 const DIVIDER_BOX_GAP: i32 = 22;
-const TITLE_BAR_H: u32 = 28;
+const TITLE_BAR_H: u32 = 30;
+const TITLE_ICON_W: i32 = 34;
+const TITLE_ICON_H: i32 = 18;
+const TITLE_ICON_PAD: i32 = 6;
+const TITLE_TEXT_PAD_X: i32 = 12;
 const STATUS_BAR_H: u32 = 30;
 const STATUS_TEXT_PAD_X: i32 = 10;
+const STATUS_DOT_SIZE: i32 = 10;
+const STATUS_DOT_GAP: i32 = 8;
+const COLOR_LED_ON: Color = Color::RGB(0, 168, 0);
+const COLOR_LED_OFF: Color = Color::RGB(208, 0, 0);
 
 pub fn draw_road(canvas: &mut Canvas<Window>, assets: &Assets) {
     canvas
@@ -175,23 +185,52 @@ pub fn draw_lane_arrows<T>(
 
 pub fn draw_hud<T>(
     canvas: &mut Canvas<Window>,
-    title_font: &Font,
     status_font: &Font,
     texture_creator: &TextureCreator<T>,
     random_spawning: bool,
 ) {
-    // Title bar
+    // Title bar — Win95-style active window caption
     canvas.set_draw_color(COLOR_TITLE_BAR);
     canvas
         .fill_rect(Rect::new(0, 0, WINDOW_W, TITLE_BAR_H))
         .unwrap();
+    canvas.set_draw_color(COLOR_TITLE_BAR_HIGHLIGHT);
+    canvas.fill_rect(Rect::new(0, 0, WINDOW_W, 2)).ok();
+    canvas.set_draw_color(COLOR_TITLE_BAR_SHADOW);
+    canvas
+        .fill_rect(Rect::new(0, TITLE_BAR_H as i32 - 2, WINDOW_W, 2))
+        .ok();
+
+    let icon_x = TITLE_ICON_PAD;
+    let icon_y = (TITLE_BAR_H as i32 - TITLE_ICON_H) / 2;
+    draw_bevel_box(
+        canvas,
+        icon_x,
+        icon_y,
+        TITLE_ICON_W,
+        TITLE_ICON_H,
+        Color::RGB(192, 192, 192),
+    );
+    draw_text_centered(
+        canvas,
+        status_font,
+        texture_creator,
+        "SRI",
+        icon_x + TITLE_ICON_W / 2,
+        icon_y + TITLE_ICON_H / 2,
+        Color::RGB(0, 0, 128),
+    );
+
+    let title_text = "Smart Road Intersection";
+    let title_x = icon_x + TITLE_ICON_W + TITLE_TEXT_PAD_X;
+    let title_y = (TITLE_BAR_H as i32 - status_font.height() as i32) / 2;
     draw_text(
         canvas,
-        title_font,
+        status_font,
         texture_creator,
-        "Smart Road Intersection",
-        8,
-        4,
+        title_text,
+        title_x,
+        title_y,
         Color::RGB(255, 255, 255),
     );
 
@@ -212,17 +251,22 @@ pub fn draw_hud<T>(
 
     let text_y = bar_y + (STATUS_BAR_H as i32 - status_font.height() as i32) / 2;
 
+    let dot_x = STATUS_TEXT_PAD_X;
+    let dot_y = bar_y + (STATUS_BAR_H as i32 - STATUS_DOT_SIZE) / 2;
+    draw_led_dot(canvas, dot_x, dot_y, STATUS_DOT_SIZE, random_spawning);
+
     let spawn_label = if random_spawning {
         "Random spawn: ON  (R to toggle)"
     } else {
         "Random spawn: OFF (R to toggle)"
     };
+    let label_x = dot_x + STATUS_DOT_SIZE + STATUS_DOT_GAP;
     draw_text(
         canvas,
         status_font,
         texture_creator,
         spawn_label,
-        STATUS_TEXT_PAD_X,
+        label_x,
         text_y,
         Color::RGB(0, 0, 0),
     );
@@ -566,6 +610,42 @@ fn draw_dotted_horizontal(
         }
         x += DASH_ON + DASH_OFF;
     }
+}
+
+fn draw_bevel_box(
+    canvas: &mut Canvas<Window>,
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+    fill: Color,
+) {
+    canvas.set_draw_color(fill);
+    canvas.fill_rect(Rect::new(x, y, w as u32, h as u32)).ok();
+    canvas.set_draw_color(COLOR_STATUS_HIGHLIGHT);
+    canvas.fill_rect(Rect::new(x, y, w as u32, 1)).ok();
+    canvas.fill_rect(Rect::new(x, y, 1, h as u32)).ok();
+    canvas.set_draw_color(COLOR_STATUS_SHADOW);
+    canvas
+        .fill_rect(Rect::new(x + w - 1, y, 1, h as u32))
+        .ok();
+    canvas.fill_rect(Rect::new(x, y + h - 1, w as u32, 1)).ok();
+}
+
+fn draw_led_dot(canvas: &mut Canvas<Window>, x: i32, y: i32, size: i32, on: bool) {
+    let fill = if on { COLOR_LED_ON } else { COLOR_LED_OFF };
+    canvas.set_draw_color(fill);
+    canvas.fill_rect(Rect::new(x, y, size as u32, size as u32)).ok();
+    canvas.set_draw_color(COLOR_STATUS_HIGHLIGHT);
+    canvas.fill_rect(Rect::new(x, y, size as u32, 1)).ok();
+    canvas.fill_rect(Rect::new(x, y, 1, size as u32)).ok();
+    canvas.set_draw_color(COLOR_STATUS_SHADOW);
+    canvas
+        .fill_rect(Rect::new(x + size - 1, y, 1, size as u32))
+        .ok();
+    canvas
+        .fill_rect(Rect::new(x, y + size - 1, size as u32, 1))
+        .ok();
 }
 
 fn draw_text_right<T>(

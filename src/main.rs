@@ -143,7 +143,6 @@ fn main() {
         draw_vehicles(&mut canvas, &assets, &intersection.vehicles);
         draw_hud(
             &mut canvas,
-            &font,
             &lane_font,
             &texture_creator,
             random_spawning,
