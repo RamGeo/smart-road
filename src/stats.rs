@@ -9,6 +9,14 @@ use sdl2::video::Window;
 use crate::vehicle::route::{WINDOW_H, WINDOW_W};
 use crate::vehicle::Vehicle;
 
+// Win95 dialog colours
+const COLOR_DESKTOP: Color = Color::RGB(61, 139, 55);
+const COLOR_FACE: Color = Color::RGB(192, 192, 192);
+const COLOR_SHADOW: Color = Color::RGB(128, 128, 128);
+const COLOR_DARK_SHADOW: Color = Color::RGB(64, 64, 64);
+const COLOR_HIGHLIGHT: Color = Color::RGB(255, 255, 255);
+const COLOR_TITLE: Color = Color::RGB(0, 0, 128);
+
 pub struct Stats {
     pub total_passed: u32,
     pub max_simultaneous: usize,
@@ -42,7 +50,6 @@ impl Stats {
         if v.min_speed_reached < f32::MAX && v.min_speed_reached < self.min_speed {
             self.min_speed = v.min_speed_reached;
         }
-        // time_since_detected: elapsed from scheduler first seeing the vehicle → exit
         if v.time_since_detected > self.max_crossing_time {
             self.max_crossing_time = v.time_since_detected;
         }
@@ -59,28 +66,36 @@ impl Stats {
     }
 
     pub fn draw<T>(&self, canvas: &mut Canvas<Window>, font: &Font, tc: &TextureCreator<T>) {
-        const PANEL_W: u32 = 520;
-        const PANEL_H: u32 = 580;
+        canvas.set_draw_color(COLOR_DESKTOP);
+        canvas.clear();
+
+        const PANEL_W: u32 = 540;
+        const PANEL_H: u32 = 420;
+        const TITLE_H: u32 = 22;
         let panel_x = (WINDOW_W - PANEL_W) / 2;
         let panel_y = (WINDOW_H - PANEL_H) / 2;
-        let text_x = panel_x + 40;
 
-        canvas.set_draw_color(Color::RGB(20, 20, 40));
+        draw_raised_box(canvas, panel_x, panel_y, PANEL_W, PANEL_H);
+
+        // Title bar
+        canvas.set_draw_color(COLOR_TITLE);
         canvas
-            .fill_rect(Rect::new(panel_x as i32, panel_y as i32, PANEL_W, PANEL_H))
-            .ok();
-        canvas.set_draw_color(Color::RGB(100, 100, 200));
-        canvas
-            .draw_rect(Rect::new(panel_x as i32, panel_y as i32, PANEL_W, PANEL_H))
-            .ok();
-        canvas
-            .draw_rect(Rect::new(
-                panel_x as i32 + 1,
-                panel_y as i32 + 1,
-                PANEL_W - 2,
-                PANEL_H - 2,
+            .fill_rect(Rect::new(
+                panel_x as i32 + 3,
+                panel_y as i32 + 3,
+                PANEL_W - 6,
+                TITLE_H,
             ))
             .ok();
+        draw_text(
+            canvas,
+            font,
+            tc,
+            "Session Statistics",
+            panel_x as i32 + 10,
+            panel_y as i32 + 5,
+            Color::RGB(255, 255, 255),
+        );
 
         let min_speed = if self.min_speed >= f32::MAX {
             0.0
@@ -93,64 +108,119 @@ impl Stats {
             self.min_crossing_time
         };
 
+        let close_color = if self.close_calls > 0 {
+            Color::RGB(128, 0, 0)
+        } else {
+            Color::RGB(0, 128, 0)
+        };
+
         let lines: Vec<(String, Color)> = vec![
-            ("Session Statistics".into(), Color::RGB(255, 220, 80)),
-            (String::new(), Color::WHITE),
             (
                 format!("Vehicles passed:      {}", self.total_passed),
-                Color::WHITE,
+                Color::RGB(0, 0, 0),
             ),
             (
                 format!("Max simultaneous:     {}", self.max_simultaneous),
-                Color::WHITE,
+                Color::RGB(0, 0, 0),
             ),
             (
                 format!("Max speed:            {:.0} px/s", self.max_speed),
-                Color::WHITE,
+                Color::RGB(0, 0, 0),
             ),
             (
                 format!("Min speed (moving):   {:.0} px/s", min_speed),
-                Color::WHITE,
+                Color::RGB(0, 0, 0),
             ),
             (
                 format!("Max crossing time:    {:.2} s", self.max_crossing_time),
-                Color::WHITE,
+                Color::RGB(0, 0, 0),
             ),
             (
                 format!("Min crossing time:    {:.2} s", min_time),
-                Color::WHITE,
+                Color::RGB(0, 0, 0),
             ),
             (
                 format!("Close calls:          {}", self.close_calls),
-                if self.close_calls > 0 {
-                    Color::RGB(255, 100, 100)
-                } else {
-                    Color::RGB(100, 255, 100)
-                },
+                close_color,
             ),
-            (String::new(), Color::WHITE),
-            ("Press Esc to exit".into(), Color::RGB(160, 160, 160)),
+            (String::new(), Color::BLACK),
+            (
+                "Press Esc to exit".into(),
+                Color::RGB(64, 64, 64),
+            ),
         ];
 
-        let mut y = panel_y as i32 + 45;
+        let text_x = panel_x as i32 + 24;
+        let mut y = panel_y as i32 + TITLE_H as i32 + 28;
         for (text, color) in &lines {
             if text.is_empty() {
-                y += 18;
+                y += 12;
                 continue;
             }
-            if let Ok(surface) = font.render(text).blended(*color) {
-                if let Ok(texture) = tc.create_texture_from_surface(&surface) {
-                    let q = texture.query();
-                    canvas
-                        .copy(
-                            &texture,
-                            None,
-                            Rect::new(text_x as i32, y, q.width, q.height),
-                        )
-                        .ok();
-                }
-            }
-            y += 44;
+            draw_text(canvas, font, tc, text, text_x, y, *color);
+            y += 36;
+        }
+    }
+}
+
+fn draw_raised_box(canvas: &mut Canvas<Window>, x: u32, y: u32, w: u32, h: u32) {
+    canvas.set_draw_color(COLOR_FACE);
+    canvas
+        .fill_rect(Rect::new(x as i32, y as i32, w, h))
+        .ok();
+    // outer shadow
+    canvas.set_draw_color(COLOR_DARK_SHADOW);
+    canvas
+        .draw_line(
+            (x as i32 + w as i32 - 1, y as i32),
+            (x as i32 + w as i32 - 1, y as i32 + h as i32 - 1),
+        )
+        .ok();
+    canvas
+        .draw_line(
+            (x as i32, y as i32 + h as i32 - 1),
+            (x as i32 + w as i32 - 1, y as i32 + h as i32 - 1),
+        )
+        .ok();
+    // outer highlight
+    canvas.set_draw_color(COLOR_HIGHLIGHT);
+    canvas
+        .draw_line((x as i32, y as i32), (x as i32 + w as i32 - 1, y as i32))
+        .ok();
+    canvas
+        .draw_line((x as i32, y as i32), (x as i32, y as i32 + h as i32 - 1))
+        .ok();
+    // inner shadow
+    canvas.set_draw_color(COLOR_SHADOW);
+    canvas
+        .draw_line(
+            (x as i32 + 1, y as i32 + h as i32 - 2),
+            (x as i32 + w as i32 - 2, y as i32 + h as i32 - 2),
+        )
+        .ok();
+    canvas
+        .draw_line(
+            (x as i32 + w as i32 - 2, y as i32 + 1),
+            (x as i32 + w as i32 - 2, y as i32 + h as i32 - 2),
+        )
+        .ok();
+}
+
+fn draw_text<T>(
+    canvas: &mut Canvas<Window>,
+    font: &Font,
+    tc: &TextureCreator<T>,
+    text: &str,
+    x: i32,
+    y: i32,
+    color: Color,
+) {
+    if let Ok(surface) = font.render(text).blended(color) {
+        if let Ok(texture) = tc.create_texture_from_surface(&surface) {
+            let q = texture.query();
+            canvas
+                .copy(&texture, None, Rect::new(x, y, q.width, q.height))
+                .ok();
         }
     }
 }

@@ -4,10 +4,10 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use smart_road::intersection::Intersection;
-use smart_road::renderer::{draw_intersection_box, draw_lane_arrows, draw_road, draw_vehicles};
+use smart_road::renderer::{draw_hud, draw_lane_arrows, draw_road, draw_vehicles, Assets};
 use smart_road::vehicle::route::{Direction, WINDOW_H, WINDOW_W};
 
-const WINDOW_TITLE: &str = "Road Intersection";
+const WINDOW_TITLE: &str = "Smart Road Intersection";
 
 const RANDOM_SPAWN_INTERVAL: f32 = 0.8;
 
@@ -38,6 +38,7 @@ fn main() {
         .unwrap();
     let mut canvas = window.into_canvas().build().unwrap();
     let texture_creator = canvas.texture_creator();
+    let assets = Assets::load(&texture_creator);
     let font = ttf_context
         .load_font(find_font(), 22)
         .expect("Font not found — install fonts-dejavu-core or fonts-liberation");
@@ -55,21 +56,39 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
-                | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => break 'running,
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'running,
 
-                Event::KeyDown { keycode: Some(Keycode::Up), .. } => {
+                Event::KeyDown {
+                    keycode: Some(Keycode::Up),
+                    ..
+                } => {
                     intersection.spawn_vehicle(Direction::South);
                 }
-                Event::KeyDown { keycode: Some(Keycode::Down), .. } => {
+                Event::KeyDown {
+                    keycode: Some(Keycode::Down),
+                    ..
+                } => {
                     intersection.spawn_vehicle(Direction::North);
                 }
-                Event::KeyDown { keycode: Some(Keycode::Right), .. } => {
+                Event::KeyDown {
+                    keycode: Some(Keycode::Right),
+                    ..
+                } => {
                     intersection.spawn_vehicle(Direction::West);
                 }
-                Event::KeyDown { keycode: Some(Keycode::Left), .. } => {
+                Event::KeyDown {
+                    keycode: Some(Keycode::Left),
+                    ..
+                } => {
                     intersection.spawn_vehicle(Direction::East);
                 }
-                Event::KeyDown { keycode: Some(Keycode::R), .. } => {
+                Event::KeyDown {
+                    keycode: Some(Keycode::R),
+                    ..
+                } => {
                     random_spawning = !random_spawning;
                 }
                 _ => {}
@@ -88,11 +107,18 @@ fn main() {
         last_frame = now;
         intersection.update(dt);
 
+        canvas.set_draw_color(Color::RGB(61, 139, 55));
         canvas.clear();
-        draw_road(&mut canvas);
-        draw_lane_arrows(&mut canvas, &lane_font, &texture_creator);
-        draw_intersection_box(&mut canvas);
-        draw_vehicles(&mut canvas, &intersection.vehicles);
+        draw_road(&mut canvas, &assets);
+        draw_lane_arrows(&mut canvas, &lane_font, &texture_creator, &assets);
+        draw_vehicles(&mut canvas, &assets, &intersection.vehicles);
+        draw_hud(
+            &mut canvas,
+            &font,
+            &lane_font,
+            &texture_creator,
+            random_spawning,
+        );
         canvas.present();
     }
 
@@ -108,8 +134,6 @@ fn main() {
                 _ => {}
             }
         }
-        canvas.set_draw_color(Color::RGB(10, 10, 10));
-        canvas.clear();
         intersection.stats.draw(&mut canvas, &font, &texture_creator);
         canvas.present();
     }

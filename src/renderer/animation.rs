@@ -1,1 +1,1 @@
-// Step 6: sprite rotation and frame selection goes here.
+// Sprite rotation helpers live in assets.rs alongside texture loading.
