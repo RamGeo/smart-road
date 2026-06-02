@@ -46,11 +46,11 @@ pub enum Velocity { Slow, Medium, Fast }
 
 pub struct Vehicle {
     pub id: u32,
+    pub direction: Direction,
     pub route: Route,
-    pub direction: Direction,   // which road the vehicle came from
-    pub position: (f32, f32),
-    pub velocity: Velocity,
+    pub path: Path,             // pre-computed waypoint path
     pub distance_travelled: f32,
+    pub velocity: Velocity,
     pub time_in_intersection: f32,
     pub entry_time: f32,
     pub close_call: bool,
@@ -221,11 +221,35 @@ Safety distance is enforced at two levels:
 
 ## Suggested Development Order
 
-1. Define `Route`, `Direction`, `Path` with hardcoded waypoints and verify geometry.
-2. Implement `Vehicle` physics (movement along path, heading interpolation).
-3. Build the `Renderer` — static road + moving boxes (no sprites yet).
-4. Implement the `Scheduler` with a simple FIFO reservation table.
-5. Wire up keyboard events and spawn throttle.
-6. Add sprite assets and rotation animation.
-7. Implement `Stats` collection and end-screen display.
-8. (Bonus) Add acceleration/deceleration physics.
+| # | Task | Status |
+|---|------|--------|
+| 1 | Define `Route`, `Direction`, `Path` with hardcoded waypoints and verify geometry | ✅ Done |
+| 2 | Implement `Vehicle` physics (movement along path, safety distance enforcement) | ✅ Done |
+| 3 | Build the `Renderer` — static road + moving boxes (no sprites yet) | ⬜ Next |
+| 4 | Implement the `Scheduler` with a simple FIFO reservation table | ⬜ Todo |
+| 5 | Wire up keyboard events and spawn throttle | ⬜ Todo |
+| 6 | Add sprite assets and rotation animation | ⬜ Todo |
+| 7 | Implement `Stats` collection and end-screen display | ⬜ Todo |
+| 8 | (Bonus) Add acceleration/deceleration physics | ⬜ Bonus |
+
+---
+
+## What Was Built — Step 1 & 2 Summary
+
+### Step 1 — Geometry (`src/vehicle/route.rs`)
+- `Route` enum: `Right`, `Straight`, `Left`
+- `Direction` enum: `North`, `South`, `East`, `West`
+- `Path` struct with hardcoded waypoints for all 12 `(Direction, Route)` combinations
+- 800×800 coordinate system, intersection box `[300,300]→[500,500]`, lane width 40 px
+- `position_at(t)` — world position at `t` pixels along the path
+- `heading_at(t)` — heading angle in radians at `t` pixels along the path
+- `total_length()` — full arc length of the path
+
+### Step 2 — Physics & Safety Distance (`src/vehicle/mod.rs`, `src/intersection/mod.rs`)
+- `Velocity` enum: `Slow` (60 px/s), `Medium` (120 px/s), `Fast` (200 px/s)
+- `SAFE_DISTANCE = 40.0` px constant
+- `Vehicle::update(dt)` advances `distance_travelled` and tracks `time_in_intersection`
+- `Vehicle::in_intersection()` checks if the vehicle is inside the box
+- `Vehicle::is_done()` returns true when the vehicle has exited the path
+- `Intersection::apply_safety_distances()` — buckets vehicles by direction into index vecs, sorts descending by `distance_travelled`, walks leader/follower pairs and sets `Velocity::Slow` when gap < `SAFE_DISTANCE`, restores `Velocity::Medium` otherwise
+- Called from `Intersection::update()` each frame before the physics tick

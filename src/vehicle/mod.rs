@@ -82,3 +82,4 @@ impl Vehicle {
         (dx * dx + dy * dy).sqrt()
     }
 }
+
