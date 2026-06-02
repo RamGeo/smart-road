@@ -59,6 +59,7 @@ pub enum SimState {
 
 pub struct LiveHudStats {
     pub active_vehicles: usize,
+    pub vehicles_passed: u32,
     pub close_calls: u32,
     pub avg_crossing_secs: f32,
     pub sim_state: SimState,
@@ -310,8 +311,9 @@ pub fn draw_hud<T>(
         Color::RGB(0, 0, 0)
     };
     let live_line = format!(
-        "Active: {}   Close: {}   Avg cross: {:.1}s",
+        "Active: {}   Passed: {}   Close: {}   Avg cross: {:.1}s",
         live.active_vehicles,
+        live.vehicles_passed,
         live.close_calls,
         live.avg_crossing_secs,
     );

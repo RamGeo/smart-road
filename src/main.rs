@@ -168,6 +168,7 @@ fn main() {
 
         let live = LiveHudStats {
             active_vehicles: intersection.vehicles.len(),
+            vehicles_passed: intersection.stats.total_passed,
             close_calls: intersection.stats.close_calls,
             avg_crossing_secs: intersection.stats.average_crossing_time(),
             sim_state,
