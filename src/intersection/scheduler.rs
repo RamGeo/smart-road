@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use crate::vehicle::route::{Direction, Path, Route, BOX_MAX, BOX_MIN};
+use crate::vehicle::route::{Direction, Path, Route, BOX_MAX_X, BOX_MAX_Y, BOX_MIN_X, BOX_MIN_Y};
 use crate::vehicle::{Vehicle, Velocity, VEHICLE_SIZE};
 
 const STOP_ZONE: f32 = 60.0;
@@ -63,10 +63,10 @@ impl Scheduler {
     fn in_stop_zone(v: &Vehicle) -> bool {
         let (x, y) = v.position();
         match v.direction {
-            Direction::North => y > BOX_MIN - STOP_ZONE && y < BOX_MIN,
-            Direction::South => y < BOX_MAX + STOP_ZONE && y > BOX_MAX,
-            Direction::East  => x < BOX_MAX + STOP_ZONE && x > BOX_MAX,
-            Direction::West  => x > BOX_MIN - STOP_ZONE && x < BOX_MIN,
+            Direction::North => y > BOX_MIN_Y - STOP_ZONE && y < BOX_MIN_Y,
+            Direction::South => y < BOX_MAX_Y + STOP_ZONE && y > BOX_MAX_Y,
+            Direction::East => x < BOX_MAX_X + STOP_ZONE && x > BOX_MAX_X,
+            Direction::West => x > BOX_MIN_X - STOP_ZONE && x < BOX_MIN_X,
         }
     }
 

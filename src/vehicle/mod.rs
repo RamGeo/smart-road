@@ -1,6 +1,6 @@
 pub mod route;
 
-use route::{BOX_MAX, BOX_MIN, Direction, Path, Route};
+use route::{BOX_MAX_X, BOX_MAX_Y, BOX_MIN_X, BOX_MIN_Y, Direction, Path, Route};
 
 pub const SLOW_SPEED: f32 = 60.0;
 pub const MEDIUM_SPEED: f32 = 120.0;
@@ -72,7 +72,7 @@ impl Vehicle {
 
     pub fn in_intersection(&self) -> bool {
         let (x, y) = self.position();
-        x >= BOX_MIN && x <= BOX_MAX && y >= BOX_MIN && y <= BOX_MAX
+        x >= BOX_MIN_X && x <= BOX_MAX_X && y >= BOX_MIN_Y && y <= BOX_MAX_Y
     }
 
     pub fn update(&mut self, dt: f32) {

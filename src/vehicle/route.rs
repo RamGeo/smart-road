@@ -1,14 +1,29 @@
-// Coordinate system: 800×800 window, top-left origin (y increases downward).
-// Intersection box: [300, 300] → [500, 500].
+// Coordinate system: WINDOW_W×WINDOW_H window, top-left origin (y increases downward).
+// Intersection is centered at (CENTER_X, CENTER_Y).
 // Three incoming lanes per road arm, each 40 px wide.
-// Southbound uses x ∈ {300, 340, 380}; Northbound x ∈ {420, 460, 500}.
-// Westbound  uses y ∈ {300, 340, 380}; Eastbound  y ∈ {420, 460, 500}.
 
-pub const WINDOW_W: f32 = 800.0;
-pub const WINDOW_H: f32 = 800.0;
-pub const BOX_MIN: f32 = 300.0;
-pub const BOX_MAX: f32 = 500.0;
+pub const WINDOW_W: u32 = 1200;
+pub const WINDOW_H: u32 = 800;
+pub const WINDOW_WF: f32 = WINDOW_W as f32;
+pub const WINDOW_HF: f32 = WINDOW_H as f32;
+
+pub const CENTER_X: f32 = (WINDOW_W / 2) as f32;
+pub const CENTER_Y: f32 = (WINDOW_H / 2) as f32;
+
+pub const BOX_HALF: f32 = 100.0;
+pub const BOX_MIN_X: f32 = CENTER_X - BOX_HALF;
+pub const BOX_MAX_X: f32 = CENTER_X + BOX_HALF;
+pub const BOX_MIN_Y: f32 = CENTER_Y - BOX_HALF;
+pub const BOX_MAX_Y: f32 = CENTER_Y + BOX_HALF;
+
+/// Road extends 20 px beyond the intersection box on each side.
+pub const ROAD_HALF: f32 = BOX_HALF + 20.0;
 pub const LANE_WIDTH: f32 = 40.0;
+
+/// Lane centre offset from intersection centre (outer / middle / inner).
+pub const LANE_OUTER: f32 = 100.0;
+pub const LANE_MID: f32 = 60.0;
+pub const LANE_INNER: f32 = 20.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Route {
@@ -34,23 +49,84 @@ pub struct Path {
 
 impl Path {
     pub fn new(direction: Direction, route: Route) -> Self {
+        let sb = |lane: u8| -> f32 {
+            CENTER_X
+                - match lane {
+                    0 => LANE_OUTER,
+                    1 => LANE_MID,
+                    _ => LANE_INNER,
+                }
+        };
+        let nb = |lane: u8| -> f32 {
+            CENTER_X
+                + match lane {
+                    0 => LANE_INNER,
+                    1 => LANE_MID,
+                    _ => LANE_OUTER,
+                }
+        };
+        let wb = |lane: u8| -> f32 {
+            CENTER_Y
+                - match lane {
+                    0 => LANE_OUTER,
+                    1 => LANE_MID,
+                    _ => LANE_INNER,
+                }
+        };
+        let eb = |lane: u8| -> f32 {
+            CENTER_Y
+                + match lane {
+                    0 => LANE_INNER,
+                    1 => LANE_MID,
+                    _ => LANE_OUTER,
+                }
+        };
+
         let waypoints = match (direction, route) {
             // From North → going South ──────────────────────────────────
-            (Direction::North, Route::Right)    => vec![(300.0,   0.0), (300.0, 300.0), (  0.0, 300.0)],
-            (Direction::North, Route::Straight) => vec![(340.0,   0.0), (340.0, 800.0)],
-            (Direction::North, Route::Left)     => vec![(380.0,   0.0), (380.0, 300.0), (380.0, 420.0), (800.0, 420.0)],
+            (Direction::North, Route::Right) => {
+                vec![(sb(0), 0.0), (sb(0), BOX_MIN_Y), (0.0, BOX_MIN_Y)]
+            }
+            (Direction::North, Route::Straight) => vec![(sb(1), 0.0), (sb(1), WINDOW_HF)],
+            (Direction::North, Route::Left) => vec![
+                (sb(2), 0.0),
+                (sb(2), BOX_MIN_Y),
+                (sb(2), eb(0)),
+                (WINDOW_WF, eb(0)),
+            ],
             // From South → going North ──────────────────────────────────
-            (Direction::South, Route::Right)    => vec![(500.0, 800.0), (500.0, 500.0), (800.0, 500.0)],
-            (Direction::South, Route::Straight) => vec![(460.0, 800.0), (460.0,   0.0)],
-            (Direction::South, Route::Left)     => vec![(420.0, 800.0), (420.0, 500.0), (420.0, 380.0), (  0.0, 380.0)],
+            (Direction::South, Route::Right) => {
+                vec![(nb(2), WINDOW_HF), (nb(2), BOX_MAX_Y), (WINDOW_WF, BOX_MAX_Y)]
+            }
+            (Direction::South, Route::Straight) => vec![(nb(1), WINDOW_HF), (nb(1), 0.0)],
+            (Direction::South, Route::Left) => vec![
+                (nb(0), WINDOW_HF),
+                (nb(0), BOX_MAX_Y),
+                (nb(0), wb(2)),
+                (0.0, wb(2)),
+            ],
             // From East → going West ────────────────────────────────────
-            (Direction::East,  Route::Right)    => vec![(800.0, 300.0), (500.0, 300.0), (500.0,   0.0)],
-            (Direction::East,  Route::Straight) => vec![(800.0, 340.0), (  0.0, 340.0)],
-            (Direction::East,  Route::Left)     => vec![(800.0, 380.0), (500.0, 380.0), (380.0, 380.0), (380.0, 800.0)],
+            (Direction::East, Route::Right) => {
+                vec![(WINDOW_WF, wb(0)), (BOX_MAX_X, wb(0)), (BOX_MAX_X, 0.0)]
+            }
+            (Direction::East, Route::Straight) => vec![(WINDOW_WF, wb(1)), (0.0, wb(1))],
+            (Direction::East, Route::Left) => vec![
+                (WINDOW_WF, wb(2)),
+                (BOX_MAX_X, wb(2)),
+                (sb(2), wb(2)),
+                (sb(2), WINDOW_HF),
+            ],
             // From West → going East ────────────────────────────────────
-            (Direction::West,  Route::Right)    => vec![(  0.0, 500.0), (300.0, 500.0), (300.0, 800.0)],
-            (Direction::West,  Route::Straight) => vec![(  0.0, 460.0), (800.0, 460.0)],
-            (Direction::West,  Route::Left)     => vec![(  0.0, 420.0), (300.0, 420.0), (420.0, 420.0), (420.0,   0.0)],
+            (Direction::West, Route::Right) => {
+                vec![(0.0, eb(2)), (BOX_MIN_X, eb(2)), (BOX_MIN_X, WINDOW_HF)]
+            }
+            (Direction::West, Route::Straight) => vec![(0.0, eb(1)), (WINDOW_WF, eb(1))],
+            (Direction::West, Route::Left) => vec![
+                (0.0, eb(0)),
+                (BOX_MIN_X, eb(0)),
+                (nb(0), eb(0)),
+                (nb(0), 0.0),
+            ],
         };
         Path { waypoints }
     }
@@ -69,7 +145,11 @@ impl Path {
             let b = self.waypoints[i + 1];
             let len = seg_len(a, b);
             if remaining <= len || i == n - 2 {
-                let frac = if len > 0.0 { (remaining / len).min(1.0) } else { 1.0 };
+                let frac = if len > 0.0 {
+                    (remaining / len).min(1.0)
+                } else {
+                    1.0
+                };
                 return lerp(a, b, frac);
             }
             remaining -= len;

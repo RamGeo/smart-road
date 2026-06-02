@@ -4,12 +4,10 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use smart_road::intersection::Intersection;
-use smart_road::renderer::{draw_road, draw_vehicles};
-use smart_road::vehicle::route::Direction;
+use smart_road::renderer::{draw_lane_arrows, draw_road, draw_vehicles};
+use smart_road::vehicle::route::{Direction, WINDOW_H, WINDOW_W};
 
-pub const WINDOW_W: u32 = 800;
-pub const WINDOW_H: u32 = 800;
-pub const WINDOW_TITLE: &str = "Road Intersection";
+const WINDOW_TITLE: &str = "Road Intersection";
 
 const RANDOM_SPAWN_INTERVAL: f32 = 0.8;
 
@@ -42,6 +40,9 @@ fn main() {
     let texture_creator = canvas.texture_creator();
     let font = ttf_context
         .load_font(find_font(), 22)
+        .expect("Font not found — install fonts-dejavu-core or fonts-liberation");
+    let lane_font = ttf_context
+        .load_font(find_font(), 16)
         .expect("Font not found — install fonts-dejavu-core or fonts-liberation");
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -89,6 +90,7 @@ fn main() {
 
         canvas.clear();
         draw_road(&mut canvas);
+        draw_lane_arrows(&mut canvas, &lane_font, &texture_creator);
         draw_vehicles(&mut canvas, &intersection.vehicles);
         canvas.present();
     }

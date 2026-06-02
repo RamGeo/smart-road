@@ -6,6 +6,7 @@ use sdl2::render::{Canvas, TextureCreator};
 use sdl2::ttf::Font;
 use sdl2::video::Window;
 
+use crate::vehicle::route::{WINDOW_H, WINDOW_W};
 use crate::vehicle::Vehicle;
 
 pub struct Stats {
@@ -58,11 +59,28 @@ impl Stats {
     }
 
     pub fn draw<T>(&self, canvas: &mut Canvas<Window>, font: &Font, tc: &TextureCreator<T>) {
+        const PANEL_W: u32 = 520;
+        const PANEL_H: u32 = 580;
+        let panel_x = (WINDOW_W - PANEL_W) / 2;
+        let panel_y = (WINDOW_H - PANEL_H) / 2;
+        let text_x = panel_x + 40;
+
         canvas.set_draw_color(Color::RGB(20, 20, 40));
-        canvas.fill_rect(Rect::new(140, 110, 520, 580)).ok();
+        canvas
+            .fill_rect(Rect::new(panel_x as i32, panel_y as i32, PANEL_W, PANEL_H))
+            .ok();
         canvas.set_draw_color(Color::RGB(100, 100, 200));
-        canvas.draw_rect(Rect::new(140, 110, 520, 580)).ok();
-        canvas.draw_rect(Rect::new(141, 111, 518, 578)).ok();
+        canvas
+            .draw_rect(Rect::new(panel_x as i32, panel_y as i32, PANEL_W, PANEL_H))
+            .ok();
+        canvas
+            .draw_rect(Rect::new(
+                panel_x as i32 + 1,
+                panel_y as i32 + 1,
+                PANEL_W - 2,
+                PANEL_H - 2,
+            ))
+            .ok();
 
         let min_speed = if self.min_speed >= f32::MAX {
             0.0
@@ -114,7 +132,7 @@ impl Stats {
             ("Press Esc to exit".into(), Color::RGB(160, 160, 160)),
         ];
 
-        let mut y = 155i32;
+        let mut y = panel_y as i32 + 45;
         for (text, color) in &lines {
             if text.is_empty() {
                 y += 18;
@@ -124,7 +142,11 @@ impl Stats {
                 if let Ok(texture) = tc.create_texture_from_surface(&surface) {
                     let q = texture.query();
                     canvas
-                        .copy(&texture, None, Rect::new(180, y, q.width, q.height))
+                        .copy(
+                            &texture,
+                            None,
+                            Rect::new(text_x as i32, y, q.width, q.height),
+                        )
                         .ok();
                 }
             }
