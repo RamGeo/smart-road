@@ -49,6 +49,10 @@ const STATUS_DOT_SIZE: i32 = 10;
 const STATUS_DOT_GAP: i32 = 8;
 const COLOR_LED_ON: Color = Color::RGB(0, 168, 0);
 const COLOR_LED_OFF: Color = Color::RGB(208, 0, 0);
+const COLOR_STREET_SIGN: Color = Color::RGB(0, 96, 0);
+const COLOR_STREET_SIGN_EDGE: Color = Color::RGB(0, 64, 0);
+const STREET_SIGN_PAD_X: i32 = 8;
+const STREET_SIGN_PAD_Y: i32 = 4;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SimState {
@@ -195,6 +199,53 @@ pub fn draw_lane_arrows<T>(
         },
         [CENTER_Y + LANE_INNER, CENTER_Y + LANE_MID, CENTER_Y + LANE_OUTER],
         ("↑", "→", "↓"),
+    );
+}
+
+pub fn draw_street_names<T>(
+    canvas: &mut Canvas<Window>,
+    font: &Font,
+    texture_creator: &TextureCreator<T>,
+) {
+    let cx = CENTER_X as i32;
+    let cy = CENTER_Y as i32;
+    let content_bottom = WINDOW_H as i32 - STATUS_BAR_H as i32;
+
+    // North–south arm
+    draw_street_sign(
+        canvas,
+        font,
+        texture_creator,
+        "Autonomous Ave",
+        cx,
+        TITLE_BAR_H as i32 + 22,
+    );
+    draw_street_sign(
+        canvas,
+        font,
+        texture_creator,
+        "Autonomous Ave",
+        cx,
+        content_bottom - 22,
+    );
+
+    // East–west arm — near spawn edges, centered on the yellow line
+    const SIGN_SPAWN_PAD: i32 = 96;
+    draw_street_sign(
+        canvas,
+        font,
+        texture_creator,
+        "Sensor St",
+        SIGN_SPAWN_PAD,
+        cy,
+    );
+    draw_street_sign(
+        canvas,
+        font,
+        texture_creator,
+        "Sensor St",
+        WINDOW_W as i32 - SIGN_SPAWN_PAD,
+        cy,
     );
 }
 
@@ -703,6 +754,52 @@ fn draw_led_dot(canvas: &mut Canvas<Window>, x: i32, y: i32, size: i32, on: bool
     canvas
         .fill_rect(Rect::new(x, y + size - 1, size as u32, 1))
         .ok();
+}
+
+fn draw_street_sign<T>(
+    canvas: &mut Canvas<Window>,
+    font: &Font,
+    texture_creator: &TextureCreator<T>,
+    name: &str,
+    center_x: i32,
+    center_y: i32,
+) {
+    let (text_w, text_h) = font.size_of(name).unwrap_or((0, 0));
+    let sign_w = text_w as i32 + STREET_SIGN_PAD_X * 2;
+    let sign_h = text_h as i32 + STREET_SIGN_PAD_Y * 2;
+    let x = center_x - sign_w / 2;
+    let y = center_y - sign_h / 2;
+
+    canvas.set_draw_color(COLOR_STREET_SIGN_EDGE);
+    canvas
+        .fill_rect(Rect::new(x - 1, y - 1, (sign_w + 2) as u32, (sign_h + 2) as u32))
+        .ok();
+    canvas.set_draw_color(COLOR_STREET_SIGN);
+    canvas
+        .fill_rect(Rect::new(x, y, sign_w as u32, sign_h as u32))
+        .ok();
+    canvas.set_draw_color(COLOR_STATUS_HIGHLIGHT);
+    canvas.fill_rect(Rect::new(x, y, sign_w as u32, 1)).ok();
+    canvas
+        .fill_rect(Rect::new(x, y, 1, sign_h as u32))
+        .ok();
+    canvas.set_draw_color(COLOR_STREET_SIGN_EDGE);
+    canvas
+        .fill_rect(Rect::new(x + sign_w - 1, y, 1, sign_h as u32))
+        .ok();
+    canvas
+        .fill_rect(Rect::new(x, y + sign_h - 1, sign_w as u32, 1))
+        .ok();
+
+    draw_text_centered(
+        canvas,
+        font,
+        texture_creator,
+        name,
+        center_x,
+        center_y,
+        Color::RGB(255, 255, 255),
+    );
 }
 
 fn draw_text_right<T>(

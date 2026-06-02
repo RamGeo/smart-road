@@ -6,7 +6,8 @@ use sdl2::pixels::Color;
 use smart_road::audio::Audio;
 use smart_road::intersection::Intersection;
 use smart_road::renderer::{
-    draw_hud, draw_lane_arrows, draw_road, draw_vehicles, Assets, LiveHudStats, SimState,
+    draw_hud, draw_lane_arrows, draw_road, draw_street_names, draw_vehicles, Assets, LiveHudStats,
+    SimState,
 };
 use smart_road::vehicle::route::{Direction, WINDOW_H, WINDOW_W};
 
@@ -178,6 +179,7 @@ fn main() {
         canvas.clear();
         draw_road(&mut canvas, &assets);
         draw_lane_arrows(&mut canvas, &lane_font, &texture_creator, &assets);
+        draw_street_names(&mut canvas, &lane_font, &texture_creator);
         draw_vehicles(&mut canvas, &assets, &intersection.vehicles);
         draw_hud(
             &mut canvas,
