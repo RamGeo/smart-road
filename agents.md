@@ -212,7 +212,7 @@ Safety distance is enforced at two levels:
 
 ## Dependency Notes
 
-- **Graphics library:** SDL2 (`sdl2` crate) or `ggez` — choose one and stay consistent.
+- **Graphics library:** SDL2 (`sdl2` crate) — chosen and in use.
 - **Asset format:** PNG sprite sheets. Vehicles face a canonical direction in the sheet; rotate in code.
 - **Time:** Use the game loop's `dt` (delta time) rather than wall-clock calls inside update logic.
 - **No threads required** for the simulation loop; keep everything single-threaded and driven by the main loop.
@@ -225,12 +225,13 @@ Safety distance is enforced at two levels:
 |---|------|--------|
 | 1 | Define `Route`, `Direction`, `Path` with hardcoded waypoints and verify geometry | ✅ Done |
 | 2 | Implement `Vehicle` physics (movement along path, safety distance enforcement) | ✅ Done |
-| 3 | Build the `Renderer` — static road + moving boxes (no sprites yet) | ⬜ Next |
-| 4 | Implement the `Scheduler` with a simple FIFO reservation table | ⬜ Todo |
-| 5 | Wire up keyboard events and spawn throttle | ⬜ Todo |
-| 6 | Add sprite assets and rotation animation | ⬜ Todo |
-| 7 | Implement `Stats` collection and end-screen display | ⬜ Todo |
-| 8 | (Bonus) Add acceleration/deceleration physics | ⬜ Bonus |
+| 3 | Build the `Renderer` — static road + moving coloured boxes (no sprites yet) | ✅ Done |
+| 4 | Implement the `Scheduler` with a simple FIFO reservation table | ⬜ Next |
+| 5 | Wire up keyboard events, random routes, and spawn throttle | ⬜ Todo |
+| 6 | Add road map image (replace drawn rectangles) | ⬜ Todo |
+| 7 | Add vehicle sprite images and rotation animation | ⬜ Todo |
+| 8 | Implement `Stats` collection and end-screen display | ⬜ Todo |
+| 9 | (Bonus) Add acceleration/deceleration physics | ⬜ Bonus |
 
 ---
 
@@ -253,3 +254,23 @@ Safety distance is enforced at two levels:
 - `Vehicle::is_done()` returns true when the vehicle has exited the path
 - `Intersection::apply_safety_distances()` — buckets vehicles by direction into index vecs, sorts descending by `distance_travelled`, walks leader/follower pairs and sets `Velocity::Slow` when gap < `SAFE_DISTANCE`, restores `Velocity::Medium` otherwise
 - Called from `Intersection::update()` each frame before the physics tick
+
+### Step 3 — Renderer (`src/renderer/mod.rs`, `src/main.rs`)
+- SDL2 chosen as the graphics library (`sdl2 = "0.37"` in `Cargo.toml`)
+- `draw_road(canvas)` — renders grass background, N-S and E-W road strips, intersection box, dashed yellow centre lines
+- `draw_vehicles(canvas, vehicles)` — renders each vehicle as a 20×20 coloured square: Red=North, Blue=South, Green=East, Yellow=West
+- Game loop in `main.rs`: event handling → `intersection.update(dt)` → clear → draw road → draw vehicles → present
+- Arrow keys wire up to `intersection.spawn_vehicle(direction)` (all routes currently `Straight` — fixed in Step 5)
+- `dt` hardcoded to `1/60` s — real elapsed time to be added in Step 5
+
+### Step 6 — Road Map Image (pending)
+- Replace the drawn road rectangles in `draw_road()` with a pre-made PNG background image
+- The image coordinate system must match the existing 800×800 layout (intersection box at [300,300]→[500,500])
+- Load via `sdl2::image` crate (`sdl2` feature `"image"`) in `src/renderer/assets.rs`
+- Suggested sources: limezu, finalbossblue, mobilegamegraphics, spriters-resource
+
+### Step 7 — Vehicle Sprite Images (pending)
+- Replace the 20×20 coloured squares with sprite images
+- Each sprite should face a canonical direction (e.g. north-facing) and be rotated in code using `vehicle.heading()`
+- Rotation is handled in `src/renderer/animation.rs` using `canvas.copy_ex()` with the angle in degrees
+- Sprite sheet or individual PNGs per direction; loaded and cached in `src/renderer/assets.rs`
