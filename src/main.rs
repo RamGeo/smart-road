@@ -18,17 +18,26 @@ const SLOW_MO_SCALE: f32 = 0.25;
 
 fn find_font() -> &'static str {
     const CANDIDATES: &[&str] = &[
+        // Linux / WSL
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        // macOS
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
     ];
     for &p in CANDIDATES {
         if std::path::Path::new(p).exists() {
             return p;
         }
     }
-    CANDIDATES[0]
+    panic!(
+        "No usable font found.\n\
+         Linux/WSL: sudo apt-get install fonts-dejavu-core\n\
+         macOS: Arial should be at /System/Library/Fonts/Supplemental/Arial.ttf"
+    );
 }
 
 fn ensure_wsl_audio() {

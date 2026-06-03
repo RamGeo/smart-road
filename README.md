@@ -1,99 +1,175 @@
 # Smart Road
 
-A traffic intersection simulation for autonomous vehicles (AVs) built in Rust with SDL2. No traffic lights — a smart intersection algorithm controls vehicle velocities to prevent collisions and minimise congestion.
+A traffic intersection simulation for autonomous vehicles (AVs), built in Rust with SDL2. There are no traffic lights — a smart scheduling algorithm controls each vehicle's velocity so they pass through the intersection without collisions and with minimal congestion.
 
-## Concept
+Traditional intersections use signals designed for human drivers. Here, fully autonomous vehicles follow fixed routes and the scheduler coordinates their speed in real time — slowing, stopping, or releasing them through the intersection.
 
-Vehicles approach a cross intersection from all four directions. Each lane has a fixed route:
-- **r** — turn right
-- **s** — go straight
-- **l** — turn left
+Each arm has three lanes with a fixed route:
 
-A smart scheduling algorithm assigns velocities so vehicles pass without colliding, instead of relying on traffic lights.
+| Lane | Route |
+|------|-------|
+| **r** | Turn right |
+| **s** | Go straight |
+| **l** | Turn left |
+
+Vehicles cannot change lanes or routes once spawned.
+
+## Features
+
+- Smart scheduler with geometric path-conflict detection
+- Four velocity levels and same-lane safety distance enforcement
+- SVG vehicle sprites that rotate smoothly along waypoint paths
+- Win95-style UI — title bar, HUD, lane markers, street signs, scenery
+- Live stats overlay and end-of-session statistics screen
+- Optional audio feedback for spawn and random-mode toggle
+- 37 unit tests in `src/tests.rs`
 
 ## Controls
 
 | Key | Action |
 |-----|--------|
-| Arrow Up | Spawn vehicle from South → heading North |
-| Arrow Down | Spawn vehicle from North → heading South |
-| Arrow Right | Spawn vehicle from West → heading East |
-| Arrow Left | Spawn vehicle from East → heading West |
-| R | Toggle continuous random vehicle generation |
-| Esc | Stop simulation and show statistics |
+| **↑** | Spawn vehicle from South → heading North |
+| **↓** | Spawn vehicle from North → heading South |
+| **→** | Spawn vehicle from West → heading East |
+| **←** | Spawn vehicle from East → heading West |
+| **R** | Toggle continuous random spawning (every 0.8 s) |
+| **Space** | Pause / resume simulation |
+| **Shift** (hold) | Slow motion (25% speed) |
+| **Esc** | Stop simulation and show statistics |
+| **Esc** (again) | Close the application |
 
-Spamming a key is safe — a new vehicle is only spawned if the entry point for that lane is clear.
+Spamming a spawn key is safe — a vehicle is only created when the lane entry point is clear. Route (r / s / l) is assigned randomly on spawn.
 
-## Building and Running
+## Build & Run
 
-Requires SDL2 development libraries. On WSL / Linux:
+Requires [Rust](https://rustup.rs/) and SDL2 + SDL2_ttf.
 
+**Linux / WSL**
 ```bash
-sudo apt-get install libsdl2-dev
+sudo apt-get install libsdl2-dev libsdl2-ttf-dev fonts-dejavu-core
 cargo run
 ```
 
-## How the Smart Algorithm Works
+**macOS (Homebrew)**
+```bash
+brew install sdl2 sdl2_ttf
+cargo run
+```
 
-1. Each vehicle is assigned a random route (right / straight / left) on spawn.
-2. As it approaches the intersection, it enters a **stop zone** (60 px before the box).
-3. The scheduler checks whether any vehicle already inside has a **conflicting path**.
-4. If blocked → the vehicle waits (`Stopped`).
-5. If clear → the vehicle enters at `Medium` speed.
-6. Only one conflicting group is released per frame, preventing simultaneous collisions.
+macOS SDL2 linking is configured in `.cargo/config.toml` — no extra env vars needed.
 
-Two right-turning vehicles from different arms are never blocked by each other — their paths do not cross.
+## Tests
 
-## Safety Distance
+```bash
+cargo test --lib
+```
 
-- `SAFE_DISTANCE = 40 px` — if the gap to the vehicle ahead (same lane) drops below this, the follower slows to `Slow`.
-- If the leader is fully stopped, the follower also stops.
-- A hard position clamp (`VEHICLE_SIZE = 22 px`) ensures vehicles never visually overlap regardless of frame timing.
+All tests live in `src/tests.rs` and cover path geometry, vehicle physics, scheduler conflict rules, spawn throttling, safety distance, close-call detection, and statistics.
+
+---
+
+## How the Algorithm Works
+
+Each simulation frame runs three passes in order:
+
+### 1. Safety distance (same lane)
+
+Vehicles on the same `(direction, route)` are sorted by distance travelled. If the gap to the vehicle ahead drops below **40 px**, the follower slows. If the leader is stopped, the follower stops too. A hard position clamp (**22 px**) prevents visual overlap regardless of frame timing.
+
+### 2. Scheduler (intersection access)
+
+As a vehicle approaches, it enters a **stop zone** (60 px before the intersection box). The scheduler then:
+
+1. Marks the vehicle as detected — crossing-time clock starts here.
+2. Checks whether any vehicle inside the box has a **geometrically conflicting path**.
+3. If blocked → velocity set to `Stopped`.
+4. If clear → vehicle released at `Fast` speed.
+5. Only **one conflicting vehicle** released per frame — prevents simultaneous-entry collisions.
+
+Path conflicts are precomputed by sampling all 12 `(direction, route)` waypoint paths. Right turns from different arms and parallel opposite straights (e.g. North straight vs South straight) typically do not block each other.
+
+### 3. Physics
+
+```
+distance += speed × dt
+```
+
+Delta time uses `std::time::Instant`, so the simulation runs at correct speed regardless of frame rate.
+
+| Velocity | Speed | When used |
+|----------|-------|-----------|
+| Stopped | 0 px/s | Waiting at stop line |
+| Slow | 60 px/s | Following too close |
+| Medium | 120 px/s | Normal travel (default on spawn) |
+| Fast | 200 px/s | Released into intersection |
+
+---
 
 ## Statistics
 
-> **Pending (Step 8)** — the statistics screen is not yet implemented.
+Press **Esc** to end the session. The statistics screen shows:
 
-When complete, pressing Esc will display:
-- Max simultaneous vehicles in the intersection
-- Max and min velocity reached
-- Max and min time any vehicle took to cross the intersection
-- Number of close calls (safety distance violations)
+| Metric | Description |
+|--------|-------------|
+| Session duration | Total elapsed simulation time |
+| Vehicles passed | Vehicles that completed their route |
+| Max simultaneous | Peak vehicles inside the intersection at once |
+| Max / min speed | Fastest and slowest non-zero speeds reached |
+| Max / min crossing time | Longest and shortest scheduler-detection → exit times |
+| Close calls | Conflicting pairs that passed within safe distance (counted once) |
+
+---
 
 ## Project Structure
 
 ```
-src/
-├── main.rs                 # Game loop, window, event handling
-├── intersection/
-│   ├── mod.rs              # Simulation state, safety distance, spawn logic
-│   └── scheduler.rs        # Smart scheduling algorithm
-├── vehicle/
-│   ├── mod.rs              # Vehicle struct and physics
-│   └── route.rs            # Path geometry and waypoints
-├── renderer/
-│   ├── mod.rs              # draw_road() and draw_vehicles()
-│   ├── animation.rs        # Sprite rotation (pending)
-│   └── assets.rs           # Image loading (pending)
-└── stats.rs                # Statistics collection and end screen (pending)
+smart-road/
+├── Cargo.toml
+├── README.md
+├── .cargo/
+│   └── config.toml              # macOS SDL2 linker paths
+│
+├── assets/
+│   ├── sprites/                 # Vehicle SVGs (red / blue / green / yellow)
+│   ├── scenery/                 # Buildings, trees, park
+│   ├── ui/                      # Grass tiles
+│   └── icons/                   # Lane arrow icons
+│
+└── src/
+    ├── main.rs                  # Entry point — game loop, input, stats screen
+    ├── lib.rs                   # Library root
+    ├── tests.rs                 # All unit tests (37)
+    ├── stats.rs                 # Metrics collection + end-screen rendering
+    ├── audio.rs                 # Procedural spawn / toggle sounds
+    │
+    ├── intersection/
+    │   ├── mod.rs               # Simulation state, spawn logic, safety distance
+    │   └── scheduler.rs         # Stop-zone scheduling + path-conflict map
+    │
+    ├── vehicle/
+    │   ├── mod.rs               # Vehicle struct, physics, velocity levels
+    │   └── route.rs             # 12 hardcoded waypoint paths, heading angles
+    │
+    └── renderer/
+        ├── mod.rs               # Road, HUD, lane markers, street names
+        ├── assets.rs            # SVG → SDL2 texture loading (resvg)
+        └── animation.rs         # Sprite rotation helpers
 ```
 
-## Coordinate System
+### Coordinate system
 
-- Window: 800×800 px
-- Intersection box: (300, 300) → (500, 500)
-- Road width: 280 → 520 px (240 px, 20 px padding each side of outermost lane)
-- Lane width: 40 px — 3 incoming lanes per road arm
+| | Value |
+|---|-------|
+| Window | 1200 × 800 px |
+| Intersection box | (500, 300) → (700, 500) |
+| Lane width | 40 px — 3 lanes per arm |
+| Safe distance | 40 px |
+| Stop zone | 60 px before box edge |
 
-## Physics
+Origin is top-left; y increases downward.
 
-Each vehicle has four speed levels (px/s):
+---
 
-| Velocity | Speed | When used |
-|----------|-------|-----------|
-| Stopped | 0 | Waiting at stop line |
-| Slow | 60 | Following too close |
-| Medium | 120 | Normal travel |
-| Fast | 200 | Reserved for scheduler optimisation |
+## Tech Stack
 
-Delta time (`dt`) is measured with `std::time::Instant` so the simulation runs at the correct physical speed regardless of frame rate.
+`sdl2` · `resvg` + `tiny-skia` (SVG assets) · `rand`

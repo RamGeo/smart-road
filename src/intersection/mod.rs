@@ -67,7 +67,7 @@ impl Intersection {
 
     // ── private helpers ───────────────────────────────────────────────────────
 
-    fn record_close_calls(&mut self) {
+    pub(crate) fn record_close_calls(&mut self) {
         let len = self.vehicles.len();
         let mut to_record: Vec<(u32, u32)> = Vec::new();
         for i in 0..len {
@@ -108,7 +108,7 @@ impl Intersection {
         }
     }
 
-    fn try_spawn(&mut self, direction: Direction, route: Route) -> bool {
+    pub(crate) fn try_spawn(&mut self, direction: Direction, route: Route) -> bool {
         let spawn_pos = Path::new(direction, route).waypoints[0];
         let occupied = self.vehicles.iter().any(|v| {
             let (vx, vy) = v.position();
@@ -126,7 +126,7 @@ impl Intersection {
         }
     }
 
-    fn apply_safety_distances(vehicles: &mut Vec<Vehicle>) {
+    pub(crate) fn apply_safety_distances(vehicles: &mut Vec<Vehicle>) {
         let mut lanes: HashMap<(Direction, Route), Vec<usize>> = HashMap::new();
 
         for (i, v) in vehicles.iter().enumerate() {

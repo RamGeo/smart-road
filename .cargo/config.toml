@@ -1,0 +1,6 @@
+# Helps `cargo test` / `cargo run` find Homebrew SDL2 on macOS.
+[target.aarch64-apple-darwin]
+rustflags = ["-L", "/opt/homebrew/lib"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-L", "/usr/local/lib"]
