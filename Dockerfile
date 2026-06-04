@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # --- Build: compile release binary (assets path baked as /app/assets) ---
 FROM rust:1-bookworm AS builder
 

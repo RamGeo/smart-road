@@ -1,6 +1,8 @@
 # Smart Road
 
-A traffic intersection simulation for autonomous vehicles (AVs), built in Rust with SDL2. There are no traffic lights — a smart scheduling algorithm controls each vehicle's velocity so they pass through the intersection without collisions and with minimal congestion.
+A traffic intersection simulation for autonomous vehicles (AVs), built in Rust with SDL2.
+
+Licensed under the [MIT License](LICENSE). There are no traffic lights — a smart scheduling algorithm controls each vehicle's velocity so they pass through the intersection without collisions and with minimal congestion.
 
 Traditional intersections use signals designed for human drivers. Here, fully autonomous vehicles follow fixed routes and the scheduler coordinates their speed in real time — slowing, stopping, or releasing them through the intersection.
 
@@ -263,3 +265,15 @@ Origin is top-left; y increases downward.
 ## Tech Stack
 
 `sdl2` · `resvg` + `tiny-skia` (SVG assets) · `rand`
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## Authors
+
+Discord profile links use your numeric user ID ([how to copy your ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID)):
+
+- **Stamatis Manousis** — [Discord](https://discordapp.com/users/350760622180270090)
+- **Dilhan Aslamaci** — [Discord](https://discordapp.com/users/1277217326256881736)
+- **Georgia Marouli** — [Discord](https://discordapp.com/users/1277216244910522371)
