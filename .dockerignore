@@ -1,0 +1,7 @@
+/target
+.cargo
+.git
+.gitignore
+*.md
+agents.md
+.cursor

@@ -58,6 +58,96 @@ cargo run
 
 macOS SDL2 linking is configured in `.cargo/config.toml` — no extra env vars needed.
 
+## Docker
+
+The image bundles SDL2, fonts, the release binary, and `assets/`. The build uses `WORKDIR /app` so runtime asset paths match what was compiled in.
+
+If Docker denies access to the socket, prefix with `sudo` or add your user to the `docker` group (`sudo usermod -aG docker "$USER"`, then open a new terminal).
+
+### Quick start (Linux / WSL)
+
+Short helper scripts (work with **`docker.io`** — no Compose plugin required):
+
+**Build:**
+
+```bash
+./scripts/docker-build.sh
+```
+
+**Run** (calls `xhost` for you, then starts the container with display + WSL2 audio):
+
+```bash
+./scripts/docker-run.sh
+```
+
+### With Docker Compose (optional)
+
+Ubuntu’s `docker.io` package does **not** include `docker compose` by default. If `docker compose run` fails with `unknown flag: --rm` or `unknown command: docker compose`, either use the scripts above or install the plugin:
+
+```bash
+sudo apt install docker-compose-v2
+```
+
+Then:
+
+```bash
+xhost +local:docker
+docker compose build
+docker compose run --rm smart-road
+```
+
+Build and run in one step: `docker compose run --rm --build smart-road`
+
+`docker-compose.yml` sets up the window (X11) and WSL2 audio (WSLg PulseAudio).
+
+### Optional shell aliases
+
+Add to `~/.bashrc` if you like shorter typing:
+
+```bash
+alias sr-build='./scripts/docker-build.sh'
+alias sr-run='./scripts/docker-run.sh'
+```
+
+Or, if you installed `docker-compose-v2`:
+
+```bash
+alias sr-build='docker compose build'
+alias sr-run='xhost +local:docker 2>/dev/null; docker compose run --rm smart-road'
+```
+
+### Troubleshooting
+
+- **`unknown command: docker compose`** or **`unknown flag: --rm`** — use `./scripts/docker-run.sh` or install `docker-compose-v2` (see above).
+- **No window** — run `xhost +local:docker` again; check `echo $DISPLAY` (often `:0` on WSL).
+- **No sound** — confirm WSLg Pulse exists: `ls /mnt/wslg/PulseServer`. The run script mounts it when present.
+- **Audio warning is OK** — the app still runs; `Audio::try_init` fails gracefully.
+
+### Manual `docker run` (without Compose)
+
+Display only:
+
+```bash
+docker run --rm \
+  -e DISPLAY="$DISPLAY" \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  smart-road:local
+```
+
+Display + WSL2 audio:
+
+```bash
+docker run --rm \
+  -e DISPLAY="$DISPLAY" \
+  -e SDL_AUDIODRIVER=pulse \
+  -e PULSE_SERVER=unix:/mnt/wslg/PulseServer \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  -v /mnt/wslg/PulseServer:/mnt/wslg/PulseServer:ro \
+  smart-road:local
+```
+
+Plain `docker build -t smart-road:local .` also works if you prefer not to use Compose.
+
 ## Tests
 
 ```bash

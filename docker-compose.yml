@@ -1,0 +1,14 @@
+services:
+  smart-road:
+    build: .
+    image: smart-road:local
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      # Route SDL audio through WSLg PulseAudio (see ensure_wsl_audio in main.rs)
+      SDL_AUDIODRIVER: pulse
+      PULSE_SERVER: unix:/mnt/wslg/PulseServer
+    volumes:
+      # Host X11 socket so the SDL window can open on your desktop
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # WSL2 only — omit on plain Linux or use host Pulse socket instead
+      - /mnt/wslg/PulseServer:/mnt/wslg/PulseServer:ro
